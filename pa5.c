@@ -151,11 +151,6 @@ int release_cs(const void *self) {
 	return send_reply_to_children(ctx);
 }
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-
 void print_usage(char *program_name) {
     fprintf(stderr, "Usage: %s [--mutexl] -p N [--mutexl]\n", program_name);
 }
