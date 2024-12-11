@@ -166,45 +166,87 @@ void handle_done2(struct Context *ctx, Message *msg) {
 	}
 }
 
-int main(int argc, char * argv[]) {
-	struct Context ctx;
-	if (argc < 3) {
-		fprintf(stderr, "Usage: %s [--mutexl] -p N [--mutexl]\n", argv[0]);
-		return 1;
-	}
-	ctx.children = 0;
-	ctx.mutexl = 0;
+void printUsage(char *programName) {
+	fprintf(stderr, "Usage: %s [--mutexl] -p N [--mutexl]\n", programName);
+}
+
+int parseArguments(int argc, char *argv[], struct Context *ctx) {
 	int8_t rp = 0;
 	for (int i = 1; i < argc; ++i) {
 		if (rp) {
-			ctx.children = atoi(argv[i]);
+			ctx->children = atoi(argv[i]);
 			rp = 0;
 		}
-		if (strcmp(argv[i], "--mutexl") == 0) ctx.mutexl = 1;
-		else if (strcmp(argv[i], "-p") == 0) rp = 1;
+		if (strcmp(argv[i], "--mutexl") == 0) {
+			ctx->mutexl = 1;
+		} else if (strcmp(argv[i], "-p") == 0) {
+			rp = 1;
+		}
 	}
-	if (initPipes(&ctx.pipes, ctx.children+1, O_NONBLOCK, pipes_log)) {
+	return 0;
+}
+
+int initializePipes(struct Context *ctx) {
+	if (initPipes(&ctx->pipes, ctx->children + 1, O_NONBLOCK, pipes_log)) {
 		fputs("Parent: failed to create pipes\n", stderr);
-		return 2;
+		return 1;
 	}
+	return 0;
+}
+
+void setupEventLog(struct Context *ctx) {
 	FILE *evt = fopen(events_log, "w");
 	fclose(evt);
-	ctx.events = fopen(events_log, "a");
-	for (local_id i = 1; i <= ctx.children; ++i) {
+	ctx->events = fopen(events_log, "a");
+}
+
+int createChildProcesses(struct Context *ctx) {
+	for (local_id i = 1; i <= ctx->children; ++i) {
 		pid_t pid = fork();
 		if (pid == 0) {
-			ctx.locpid = i;
-			break;
+			ctx->locpid = i;
+			return 0;  // Дочерний процесс
 		}
 		if (pid < 0) {
 			fprintf(stderr, "Parent: failed to create child process %d\n", i);
-			closePipes(&ctx.pipes);
-			fclose(ctx.events);
-			return 3;
+			closePipes(&ctx->pipes);
+			fclose(ctx->events);
+			return 1;  // Ошибка при создании процесса
 		}
-		ctx.locpid = PARENT_ID;
+		ctx->locpid = PARENT_ID;
 	}
-	closeUnusedPipes(&ctx.pipes, ctx.locpid);
+	return 0;
+}
+
+void closeUnusedPipesInParent(struct Context *ctx) {
+	closeUnusedPipes(&ctx->pipes, ctx->locpid);
+}
+
+int main(int argc, char *argv[]) {
+	struct Context ctx;
+	if (argc < 3) {
+		printUsage(argv[0]);
+		return 1;
+	}
+
+	ctx.children = 0;
+	ctx.mutexl = 0;
+
+	if (parseArguments(argc, argv, &ctx)) {
+		return 1;
+	}
+
+	if (initializePipes(&ctx)) {
+		return 2;
+	}
+
+	setupEventLog(&ctx);
+
+	if (createChildProcesses(&ctx)) {
+		return 3;
+	}
+
+	closeUnusedPipesInParent(&ctx);
 	if (ctx.locpid == PARENT_ID) {
 		for (local_id i = 1; i <= ctx.children; ++i) ctx.rec_started[i] = 0;
 		ctx.num_started = 0;
