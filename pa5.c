@@ -150,7 +150,7 @@ void handle_started(struct Context *ctx, Message *msg) {
 	}
 }
 
-void handle_done(struct Context *ctx, Message *msg) {
+void handle_done2(struct Context *ctx, Message *msg) {
 	if (ctx->num_done < ctx->children) {
 		if (!ctx->rec_done[ctx->msg_sender]) {
 			if (lamport_time < msg->s_header.s_local_time)
@@ -218,7 +218,7 @@ int main(int argc, char * argv[]) {
 					handle_started(&ctx, &msg);
 					break;
 				case DONE:
-					handle_done(&ctx, &msg);
+					handle_done2(&ctx, &msg);
 					break;
 				default:
 					break;
