@@ -222,7 +222,7 @@ void closeUnusedPipesInParent(struct Context *ctx) {
 	closeUnusedPipes(&ctx->pipes, ctx->locpid);
 }
 
-int handle_started2(Context *ctx, int *lamport_time, int *active) {
+int handle_started2(struct Context *ctx, int *lamport_time, int *active) {
     if (ctx->num_started < ctx->children) {
         if (!ctx->rec_started[ctx->msg_sender]) {
             if (*lamport_time < ctx->msg_header.s_local_time)
@@ -284,7 +284,7 @@ int handle_started2(Context *ctx, int *lamport_time, int *active) {
     return 0;
 }
 
-int handle_cs_request2(Context *ctx, int *lamport_time, int *active) {
+int handle_cs_request2(struct Context *ctx, int *lamport_time, int *active) {
     if (*active && ctx->mutexl) {
         if (*lamport_time < ctx->msg_header.s_local_time)
             *lamport_time = ctx->msg_header.s_local_time;
@@ -305,7 +305,7 @@ int handle_cs_request2(Context *ctx, int *lamport_time, int *active) {
     return 0;
 }
 
-int handle_done3(Context *ctx, int *lamport_time, int *active) {
+int handle_done3(struct Context *ctx, int *lamport_time, int *active) {
     if (ctx->num_done < ctx->children) {
         if (!ctx->rec_done[ctx->msg_sender]) {
             if (*lamport_time < ctx->msg_header.s_local_time)
