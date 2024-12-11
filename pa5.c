@@ -26,22 +26,9 @@ int8_t compare_requests(struct Request first, struct Request second) {
     return 0;
 }
 
-int request_cs_init(struct Context *ctx) {
-    ++lamport_time;
-    ctx->reqs[ctx->locpid].locpid = ctx->locpid;
-    ctx->reqs[ctx->locpid].req_time = get_lamport_time();
-    Message request;
-    request.s_header.s_magic = MESSAGE_MAGIC;
-    request.s_header.s_type = CS_REQUEST;
-    request.s_header.s_payload_len = 0;
-    request.s_header.s_local_time = get_lamport_time();
-    return send_multicast(ctx, &request);
-}
-
-int handle_cs_request(struct Context *ctx, Message *msg) {
+void handle_cs_request(struct Context *ctx, Message *msg, int8_t *rep_arr, local_id *replies) {
     if (ctx->mutexl) {
-        if (lamport_time < msg->s_header.s_local_time)
-            lamport_time = msg->s_header.s_local_time;
+        if (lamport_time < msg->s_header.s_local_time) lamport_time = msg->s_header.s_local_time;
         ++lamport_time;
         if (compare_requests((struct Request){ctx->msg_sender, msg->s_header.s_local_time}, ctx->reqs[ctx->locpid]) < 0) {
             ++lamport_time;
@@ -50,31 +37,27 @@ int handle_cs_request(struct Context *ctx, Message *msg) {
             reply.s_header.s_type = CS_REPLY;
             reply.s_header.s_payload_len = 0;
             reply.s_header.s_local_time = get_lamport_time();
-            return send(ctx, ctx->msg_sender, &reply);
+            if (send(ctx, ctx->msg_sender, &reply)) return;
         } else {
             ctx->reqs[ctx->msg_sender].locpid = ctx->msg_sender;
             ctx->reqs[ctx->msg_sender].req_time = msg->s_header.s_local_time;
         }
     }
-    return 0;
 }
 
-int handle_cs_reply(struct Context *ctx, Message *msg, int8_t *rep_arr, int *replies) {
+void handle_cs_reply(struct Context *ctx, Message *msg, int8_t *rep_arr, local_id *replies) {
     if (!rep_arr[ctx->msg_sender]) {
-        if (lamport_time < msg->s_header.s_local_time)
-            lamport_time = msg->s_header.s_local_time;
+        if (lamport_time < msg->s_header.s_local_time) lamport_time = msg->s_header.s_local_time;
         ++lamport_time;
         rep_arr[ctx->msg_sender] = 1;
         ++(*replies);
     }
-    return 0;
 }
 
-int handle_done(struct Context *ctx, Message *msg, int8_t *rep_arr, int *replies) {
+void handle_done(struct Context *ctx, Message *msg, int8_t *rep_arr, local_id *replies) {
     if (ctx->num_done < ctx->children) {
         if (!ctx->rec_done[ctx->msg_sender]) {
-            if (lamport_time < msg->s_header.s_local_time)
-                lamport_time = msg->s_header.s_local_time;
+            if (lamport_time < msg->s_header.s_local_time) lamport_time = msg->s_header.s_local_time;
             ++lamport_time;
             ctx->rec_done[ctx->msg_sender] = 1;
             ++ctx->num_done;
@@ -88,109 +71,67 @@ int handle_done(struct Context *ctx, Message *msg, int8_t *rep_arr, int *replies
             }
         }
     }
-    return 0;
 }
 
-int request_cs(struct Context *ctx) {
-    if (request_cs_init(ctx)) return 1;
-
-    local_id replies = 0;
-    int8_t rep_arr[MAX_PROCESS_ID + 1];
-    for (local_id i = 1; i <= ctx->children; ++i) {
-        replies += ctx->rec_done[i];
-        rep_arr[i] = ctx->rec_done[i];
-    }
-
-    if (!rep_arr[ctx->locpid]) {
-        ++replies;
-        rep_arr[ctx->locpid] = 1;
-    }
-
-    while (replies < ctx->children) {
-        Message msg;
-        while (receive_any(ctx, &msg)) {}
-        switch (msg.s_header.s_type) {
-            case CS_REQUEST:
-                if (handle_cs_request(ctx, &msg)) return 2;
-                break;
-            case CS_REPLY:
-                if (handle_cs_reply(ctx, &msg, rep_arr, &replies)) return 2;
-                break;
-            case DONE:
-                if (handle_done(ctx, &msg, rep_arr, &replies)) return 2;
-                break;
-            default: break;
-        }
-    }
-    return 0;
-}
-
-int send_reply_to_children(struct Context *ctx) {
+int release_cs(const void * self) {
+	struct Context *ctx = (struct Context*)self;
+	ctx->reqs[ctx->locpid].locpid = 0;
+    ctx->reqs[ctx->locpid].req_time = 0;
+	++lamport_time;
 	Message reply;
 	reply.s_header.s_magic = MESSAGE_MAGIC;
 	reply.s_header.s_type = CS_REPLY;
 	reply.s_header.s_payload_len = 0;
 	reply.s_header.s_local_time = get_lamport_time();
-
 	for (local_id i = 1; i <= ctx->children; ++i) {
-		if (ctx->reqs[i].locpid > 0) {
-			if (send(ctx, i, &reply)) return 1;
-			ctx->reqs[i].locpid = 0;
-			ctx->reqs[i].req_time = 0;
-		}
-	}
+        if (ctx->reqs[i].locpid > 0) {
+            if (send(ctx, i, &reply)) return 1;
+            ctx->reqs[i].locpid = 0;
+            ctx->reqs[i].req_time = 0;
+        }
+    }
 	return 0;
 }
 
-int release_cs(const void *self) {
+int request_cs(const void * self) {
 	struct Context *ctx = (struct Context*)self;
-	ctx->reqs[ctx->locpid].locpid = 0;
-	ctx->reqs[ctx->locpid].req_time = 0;
 	++lamport_time;
-
-	return send_reply_to_children(ctx);
-}
-
-void update_lamport_time(int *lamport_time, int msg_time) {
-	if (*lamport_time < msg_time)
-		*lamport_time = msg_time;
-	++(*lamport_time);
-}
-
-void log_all_started(Context *ctx) {
-	printf(log_received_all_started_fmt, get_lamport_time(), ctx->locpid);
-	fprintf(ctx->events, log_received_all_started_fmt, get_lamport_time(), ctx->locpid);
-}
-
-void log_all_done(Context *ctx) {
-	printf(log_received_all_done_fmt, get_lamport_time(), ctx->locpid);
-	fprintf(ctx->events, log_received_all_done_fmt, get_lamport_time(), ctx->locpid);
-}
-
-void handle_started_message(Context *ctx, Message msg, int *lamport_time) {
-	if (ctx->num_started < ctx->children) {
-		if (!ctx->rec_started[ctx->msg_sender]) {
-			update_lamport_time(lamport_time, msg.s_header.s_local_time);
-			ctx->rec_started[ctx->msg_sender] = 1;
-			++ctx->num_started;
-			if (ctx->num_started == ctx->children) {
-				log_all_started(ctx);
-			}
+	ctx->reqs[ctx->locpid].locpid = ctx->locpid;
+	ctx->reqs[ctx->locpid].req_time = get_lamport_time();
+	Message request;
+	request.s_header.s_magic = MESSAGE_MAGIC;
+	request.s_header.s_type = CS_REQUEST;
+	request.s_header.s_payload_len = 0;
+	request.s_header.s_local_time = get_lamport_time();
+	if (send_multicast(ctx, &request)) return 1;
+	local_id replies = 0;
+	int8_t rep_arr[MAX_PROCESS_ID+1];
+	for (local_id i = 1; i <= ctx->children; ++i) {
+		replies += ctx->rec_done[i];
+		rep_arr[i] = ctx->rec_done[i];
+	}
+	if (!rep_arr[ctx->locpid]) {
+		++replies;
+		rep_arr[ctx->locpid] = 1;
+	}
+	while (replies < ctx->children) {
+		Message msg;
+		while (receive_any(ctx, &msg)) {}
+		switch (msg.s_header.s_type) {
+			case CS_REQUEST:
+				handle_cs_request(ctx, &msg, rep_arr, &replies);
+			break;
+			case CS_REPLY:
+				handle_cs_reply(ctx, &msg, rep_arr, &replies);
+			break;
+			case DONE:
+				handle_done(ctx, &msg, rep_arr, &replies);
+			break;
+			default:
+				break;
 		}
 	}
-}
-
-void handle_done_message(Context *ctx, Message msg, int *lamport_time) {
-	if (ctx->num_done < ctx->children) {
-		if (!ctx->rec_done[ctx->msg_sender]) {
-			update_lamport_time(lamport_time, msg.s_header.s_local_time);
-			ctx->rec_done[ctx->msg_sender] = 1;
-			++ctx->num_done;
-			if (ctx->num_done == ctx->children) {
-				log_all_done(ctx);
-			}
-		}
-	}
+	return 0;
 }
 
 int main(int argc, char * argv[]) {
@@ -242,13 +183,38 @@ int main(int argc, char * argv[]) {
 			while (receive_any(&ctx, &msg)) {}
 			switch (msg.s_header.s_type) {
 				case STARTED:
-					handle_started_message(ctx, msg, lamport_time);
+					if (ctx.num_started < ctx.children) {
+						if (!ctx.rec_started[ctx.msg_sender]) {
+							if (lamport_time < msg.s_header.s_local_time)
+								lamport_time = msg.s_header.s_local_time;
+							++lamport_time;
+							ctx.rec_started[ctx.msg_sender] = 1;
+							++ctx.num_started;
+							if (ctx.num_started == ctx.children) {
+								printf(log_received_all_started_fmt, get_lamport_time(), ctx.locpid);
+								fprintf(ctx.events, log_received_all_started_fmt, get_lamport_time(),
+										ctx.locpid);
+							}
+						}
+					}
 					break;
 				case DONE:
-					handle_done_message(ctx, msg, lamport_time);
+					if (ctx.num_done < ctx.children) {
+						if (!ctx.rec_done[ctx.msg_sender]) {
+							if (lamport_time < msg.s_header.s_local_time)
+								lamport_time = msg.s_header.s_local_time;
+							++lamport_time;
+							ctx.rec_done[ctx.msg_sender] = 1;
+							++ctx.num_done;
+							if (ctx.num_done == ctx.children) {
+								printf(log_received_all_done_fmt, get_lamport_time(), ctx.locpid);
+								fprintf(ctx.events, log_received_all_done_fmt, get_lamport_time(),
+										ctx.locpid);
+							}
+						}
+					}
 					break;
-				default:
-					break;
+				default: break;
 			}
 			fflush(ctx.events);
 		}
