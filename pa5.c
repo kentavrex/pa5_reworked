@@ -116,7 +116,7 @@ int request_cs(const void * self) {
 	}
 	while (replies < ctx->children) {
 		Message msg;
-		while (receive_any(&ctx, &msg)) {}
+		while (receive_any(ctx, &msg)) {}
 		switch (msg.s_header.s_type) {
 			case CS_REQUEST:
 				handle_cs_request(ctx, &msg, rep_arr, &replies);
@@ -398,7 +398,7 @@ int main(int argc, char *argv[]) {
 		while (active || ctx.num_done < ctx.children) {
 			Message msg;
 			while (receive_any(&ctx, &msg)) {}
-			handle_message(ctx, &msg);
+			handle_message(&ctx, &msg);
 			fflush(ctx.events);
 		}
 	}
