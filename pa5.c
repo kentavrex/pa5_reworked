@@ -134,6 +134,49 @@ int request_cs(const void * self) {
 	return 0;
 }
 
+
+void update_lamport_time(int *lamport_time, int msg_time) {
+	if (*lamport_time < msg_time)
+		*lamport_time = msg_time;
+	++(*lamport_time);
+}
+
+void log_all_started(Context *ctx) {
+	printf(log_received_all_started_fmt, get_lamport_time(), ctx->locpid);
+	fprintf(ctx->events, log_received_all_started_fmt, get_lamport_time(), ctx->locpid);
+}
+
+void log_all_done(Context *ctx) {
+	printf(log_received_all_done_fmt, get_lamport_time(), ctx->locpid);
+	fprintf(ctx->events, log_received_all_done_fmt, get_lamport_time(), ctx->locpid);
+}
+
+void handle_started_message(Context *ctx, Message msg, int *lamport_time) {
+	if (ctx->num_started < ctx->children) {
+		if (!ctx->rec_started[ctx->msg_sender]) {
+			update_lamport_time(lamport_time, msg.s_header.s_local_time);
+			ctx->rec_started[ctx->msg_sender] = 1;
+			++ctx->num_started;
+			if (ctx->num_started == ctx->children) {
+				log_all_started(ctx);
+			}
+		}
+	}
+}
+
+void handle_done_message(Context *ctx, Message msg, int *lamport_time) {
+	if (ctx->num_done < ctx->children) {
+		if (!ctx->rec_done[ctx->msg_sender]) {
+			update_lamport_time(lamport_time, msg.s_header.s_local_time);
+			ctx->rec_done[ctx->msg_sender] = 1;
+			++ctx->num_done;
+			if (ctx->num_done == ctx->children) {
+				log_all_done(ctx);
+			}
+		}
+	}
+}
+
 int main(int argc, char * argv[]) {
 	struct Context ctx;
 	if (argc < 3) {
@@ -183,38 +226,13 @@ int main(int argc, char * argv[]) {
 			while (receive_any(&ctx, &msg)) {}
 			switch (msg.s_header.s_type) {
 				case STARTED:
-					if (ctx.num_started < ctx.children) {
-						if (!ctx.rec_started[ctx.msg_sender]) {
-							if (lamport_time < msg.s_header.s_local_time)
-								lamport_time = msg.s_header.s_local_time;
-							++lamport_time;
-							ctx.rec_started[ctx.msg_sender] = 1;
-							++ctx.num_started;
-							if (ctx.num_started == ctx.children) {
-								printf(log_received_all_started_fmt, get_lamport_time(), ctx.locpid);
-								fprintf(ctx.events, log_received_all_started_fmt, get_lamport_time(),
-										ctx.locpid);
-							}
-						}
-					}
+					handle_started_message(ctx, msg, lamport_time);
 					break;
 				case DONE:
-					if (ctx.num_done < ctx.children) {
-						if (!ctx.rec_done[ctx.msg_sender]) {
-							if (lamport_time < msg.s_header.s_local_time)
-								lamport_time = msg.s_header.s_local_time;
-							++lamport_time;
-							ctx.rec_done[ctx.msg_sender] = 1;
-							++ctx.num_done;
-							if (ctx.num_done == ctx.children) {
-								printf(log_received_all_done_fmt, get_lamport_time(), ctx.locpid);
-								fprintf(ctx.events, log_received_all_done_fmt, get_lamport_time(),
-										ctx.locpid);
-							}
-						}
-					}
+					handle_done_message(ctx, msg, lamport_time);
 					break;
-				default: break;
+				default:
+					break;
 			}
 			fflush(ctx.events);
 		}
