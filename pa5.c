@@ -336,7 +336,7 @@ void handle_message(struct Context *ctx, Message *msg) {
     }
 }
 
-int handle_started(Message msg, Context *ctx) {
+int handle_started2(Message msg, Context *ctx) {
     if (ctx->num_started < ctx->children) {
         if (!ctx->rec_started[ctx->msg_sender]) {
             if (lamport_time < msg.s_header.s_local_time)
@@ -501,7 +501,7 @@ int main(int argc, char *argv[]) {
 			while (receive_any(&ctx, &msg)) {}
 			switch (msg.s_header.s_type) {
 				case STARTED:
-					if (handle_started(msg, &ctx) != 0) {
+					if (handle_started2(msg, &ctx) != 0) {
 						return 5;
 					}
 					break;
