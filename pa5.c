@@ -222,13 +222,13 @@ void closeUnusedPipesInParent(struct Context *ctx) {
 	closeUnusedPipes(&ctx->pipes, ctx->locpid);
 }
 
-int handle_started2(struct Context *ctx, int *lamport_time, int *active) {
+int handle_started2(struct Context *ctx, int *lamport_time, int *active, struct Message *msg) {
     if (ctx->num_started < ctx->children) {
-        if (!ctx->rec_started[ctx->msg_sender]) {
-            if (*lamport_time < ctx->msg_header.s_local_time)
-                *lamport_time = ctx->msg_header.s_local_time;
+        if (!ctx->rec_started[msg->s_header.s_sender]) {
+            if (*lamport_time < msg->s_header.s_local_time)
+                *lamport_time = msg->s_header.s_local_time;
             ++(*lamport_time);
-            ctx->rec_started[ctx->msg_sender] = 1;
+            ctx->rec_started[msg->s_header.s_sender] = 1;
             ++ctx->num_started;
             if (ctx->num_started == ctx->children) {
                 printf(log_received_all_started_fmt, get_lamport_time(), ctx->locpid);
@@ -257,7 +257,7 @@ int handle_started2(struct Context *ctx, int *lamport_time, int *active) {
                     }
                 }
                 ++(*lamport_time);
-                Message done;
+                struct Message done;
                 done.s_header.s_magic = MESSAGE_MAGIC;
                 done.s_header.s_type = DONE;
                 sprintf(done.s_payload, log_done_fmt, get_lamport_time(), ctx->locpid, 0);
@@ -277,49 +277,49 @@ int handle_started2(struct Context *ctx, int *lamport_time, int *active) {
                     printf(log_received_all_done_fmt, get_lamport_time(), ctx->locpid);
                     fprintf(ctx->events, log_received_all_done_fmt, get_lamport_time(), ctx->locpid);
                 }
-                *active = 0; // Set active to 0 to stop the loop
+                *active = 0; // Устанавливаем active в 0 для остановки цикла
             }
         }
     }
     return 0;
 }
 
-int handle_cs_request2(struct Context *ctx, int *lamport_time, int *active) {
-    if (*active && ctx->mutexl) {
-        if (*lamport_time < ctx->msg_header.s_local_time)
-            *lamport_time = ctx->msg_header.s_local_time;
-        ++(*lamport_time);
-        ++(*lamport_time);
-        Message reply;
-        reply.s_header.s_magic = MESSAGE_MAGIC;
-        reply.s_header.s_type = CS_REPLY;
-        reply.s_header.s_payload_len = 0;
-        reply.s_header.s_local_time = get_lamport_time();
-        if (send(ctx, ctx->msg_sender, &reply)) {
-            fprintf(stderr, "Child %d: failed to send CS_REPLY message\n", ctx->locpid);
-            closePipes(&ctx->pipes);
-            fclose(ctx->events);
-            return 8;
-        }
-    }
-    return 0;
+int handle_cs_request2(struct Context *ctx, int *lamport_time, int *active, struct Message *msg) {
+	if (*active && ctx->mutexl) {
+		if (*lamport_time < msg->s_header.s_local_time)
+			*lamport_time = msg->s_header.s_local_time;
+		++(*lamport_time);
+		++(*lamport_time);
+		struct Message reply;
+		reply.s_header.s_magic = MESSAGE_MAGIC;
+		reply.s_header.s_type = CS_REPLY;
+		reply.s_header.s_payload_len = 0;
+		reply.s_header.s_local_time = get_lamport_time();
+		if (send(ctx, msg->s_sender, &reply)) {
+			fprintf(stderr, "Child %d: failed to send CS_REPLY message\n", ctx->locpid);
+			closePipes(&ctx->pipes);
+			fclose(ctx->events);
+			return 8;
+		}
+	}
+	return 0;
 }
 
-int handle_done3(struct Context *ctx, int *lamport_time, int *active) {
-    if (ctx->num_done < ctx->children) {
-        if (!ctx->rec_done[ctx->msg_sender]) {
-            if (*lamport_time < ctx->msg_header.s_local_time)
-                *lamport_time = ctx->msg_header.s_local_time;
-            ++(*lamport_time);
-            ctx->rec_done[ctx->msg_sender] = 1;
-            ++ctx->num_done;
-            if (ctx->num_done == ctx->children) {
-                printf(log_received_all_done_fmt, get_lamport_time(), ctx->locpid);
-                fprintf(ctx->events, log_received_all_done_fmt, get_lamport_time(), ctx->locpid);
-            }
-        }
-    }
-    return 0;
+int handle_done3(struct Context *ctx, int *lamport_time, int *active, struct Message *msg) {
+	if (ctx->num_done < ctx->children) {
+		if (!ctx->rec_done[msg->s_header.s_sender]) {
+			if (*lamport_time < msg->s_header.s_local_time)
+				*lamport_time = msg->s_header.s_local_time;
+			++(*lamport_time);
+			ctx->rec_done[msg->s_header.s_sender] = 1;
+			++ctx->num_done;
+			if (ctx->num_done == ctx->children) {
+				printf(log_received_all_done_fmt, get_lamport_time(), ctx->locpid);
+				fprintf(ctx->events, log_received_all_done_fmt, get_lamport_time(), ctx->locpid);
+			}
+		}
+	}
+	return 0;
 }
 
 int main(int argc, char *argv[]) {
