@@ -134,44 +134,33 @@ int request_cs(const void * self) {
 	return 0;
 }
 
-
-void update_lamport_time(int *lamport_time, int msg_time) {
-	if (*lamport_time < msg_time)
-		*lamport_time = msg_time;
-	++(*lamport_time);
-}
-
-void log_all_started(Context *ctx) {
-	printf(log_received_all_started_fmt, get_lamport_time(), ctx->locpid);
-	fprintf(ctx->events, log_received_all_started_fmt, get_lamport_time(), ctx->locpid);
-}
-
-void log_all_done(Context *ctx) {
-	printf(log_received_all_done_fmt, get_lamport_time(), ctx->locpid);
-	fprintf(ctx->events, log_received_all_done_fmt, get_lamport_time(), ctx->locpid);
-}
-
-void handle_started_message(Context *ctx, Message msg, int *lamport_time) {
+void handle_started(struct Context *ctx, Message *msg) {
 	if (ctx->num_started < ctx->children) {
 		if (!ctx->rec_started[ctx->msg_sender]) {
-			update_lamport_time(lamport_time, msg.s_header.s_local_time);
+			if (lamport_time < msg->s_header.s_local_time)
+				lamport_time = msg->s_header.s_local_time;
+			++lamport_time;
 			ctx->rec_started[ctx->msg_sender] = 1;
 			++ctx->num_started;
 			if (ctx->num_started == ctx->children) {
-				log_all_started(ctx);
+				printf(log_received_all_started_fmt, get_lamport_time(), ctx->locpid);
+				fprintf(ctx->events, log_received_all_started_fmt, get_lamport_time(), ctx->locpid);
 			}
 		}
 	}
 }
 
-void handle_done_message(Context *ctx, Message msg, int *lamport_time) {
+void handle_done(struct Context *ctx, Message *msg) {
 	if (ctx->num_done < ctx->children) {
 		if (!ctx->rec_done[ctx->msg_sender]) {
-			update_lamport_time(lamport_time, msg.s_header.s_local_time);
+			if (lamport_time < msg->s_header.s_local_time)
+				lamport_time = msg->s_header.s_local_time;
+			++lamport_time;
 			ctx->rec_done[ctx->msg_sender] = 1;
 			++ctx->num_done;
 			if (ctx->num_done == ctx->children) {
-				log_all_done(ctx);
+				printf(log_received_all_done_fmt, get_lamport_time(), ctx->locpid);
+				fprintf(ctx->events, log_received_all_done_fmt, get_lamport_time(), ctx->locpid);
 			}
 		}
 	}
@@ -226,10 +215,10 @@ int main(int argc, char * argv[]) {
 			while (receive_any(&ctx, &msg)) {}
 			switch (msg.s_header.s_type) {
 				case STARTED:
-					handle_started_message(ctx, msg, lamport_time);
+					handle_started(&ctx, &msg);
 					break;
 				case DONE:
-					handle_done_message(ctx, msg, lamport_time);
+					handle_done(&ctx, &msg);
 					break;
 				default:
 					break;
