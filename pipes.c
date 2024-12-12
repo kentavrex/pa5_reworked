@@ -54,29 +54,15 @@ void closePipeDescriptor(const struct Pipes *pipes, local_id procid, Descriptor 
     fprintf(pipes->plog, "Process %d closed pipe descriptor %d for %s\n", procid, pipe_desc, pipe_type);
 }
 
-int should_close_pair(local_id i, local_id j, local_id procid) {
-    return (i != j);
-}
-
-void close_write_pipe(const struct Pipes *pipes, local_id procid, local_id i, local_id j) {
-    if (should_close_pair(i, j, procid)) {
-        Descriptor wr = accessPipe(pipes, (struct PipeDescriptor){i, j, WRITING});
-        closePipeDescriptor(pipes, procid, wr, "writing");
-    }
-}
-
-void close_read_pipe(const struct Pipes *pipes, local_id procid, local_id i, local_id j) {
-    if (should_close_pair(i, j, procid)) {
-        Descriptor rd = accessPipe(pipes, (struct PipeDescriptor){i, j, READING});
-        closePipeDescriptor(pipes, procid, rd, "reading");
-    }
-}
-
 void closeUnusedPipes(const struct Pipes *pipes, local_id procid) {
     for (local_id i = 0; i < pipes->size; ++i) {
         for (local_id j = 0; j < pipes->size; ++j) {
-            close_write_pipe(pipes, procid, i, j);
-            close_read_pipe(pipes, procid, i, j);
+            if (i != j) {
+                Descriptor rd = accessPipe(pipes, (struct PipeDescriptor){i, j, READING});
+                Descriptor wr = accessPipe(pipes, (struct PipeDescriptor){i, j, WRITING});
+                if (i != procid) closePipeDescriptor(pipes, procid, wr, "writing");
+                if (j != procid) closePipeDescriptor(pipes, procid, rd, "reading");
+            }
         }
     }
     fflush(pipes->plog);
