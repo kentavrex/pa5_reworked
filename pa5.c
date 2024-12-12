@@ -214,19 +214,31 @@ int request_cs(const void *self) {
 	return 0;
 }
 
+int update_lamport_time_started(struct Context *ctx, Message *msg) {
+	if (lamport_time < msg->s_header.s_local_time) {
+		lamport_time = msg->s_header.s_local_time;
+	}
+	++lamport_time;
+	return 0;
+}
+
+int process_started_message(struct Context *ctx, Message *msg) {
+	if (!ctx->rec_started[ctx->msg_sender]) {
+		update_lamport_time_started(ctx, msg);
+		ctx->rec_started[ctx->msg_sender] = 1;
+		++ctx->num_started;
+
+		if (ctx->num_started == ctx->children) {
+			printf(log_received_all_started_fmt, get_lamport_time(), ctx->locpid);
+			fprintf(ctx->events, log_received_all_started_fmt, get_lamport_time(), ctx->locpid);
+		}
+	}
+	return 0;
+}
+
 void handle_started(struct Context *ctx, Message *msg) {
 	if (ctx->num_started < ctx->children) {
-		if (!ctx->rec_started[ctx->msg_sender]) {
-			if (lamport_time < msg->s_header.s_local_time)
-				lamport_time = msg->s_header.s_local_time;
-			++lamport_time;
-			ctx->rec_started[ctx->msg_sender] = 1;
-			++ctx->num_started;
-			if (ctx->num_started == ctx->children) {
-				printf(log_received_all_started_fmt, get_lamport_time(), ctx->locpid);
-				fprintf(ctx->events, log_received_all_started_fmt, get_lamport_time(), ctx->locpid);
-			}
-		}
+		process_started_message(ctx, msg);
 	}
 }
 
