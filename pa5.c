@@ -18,17 +18,28 @@ timestamp_t get_lamport_time() {
 	return lamport_time;
 }
 
-int8_t compare_requests(struct Request first, struct Request second) {
-    if (first.req_time > second.req_time) return 1;
-    if (first.req_time < second.req_time) return -1;
-    if (first.locpid > second.locpid) return 1;
-    if (first.locpid < second.locpid) return -1;
-    return 0;
-}
-
 void update_lamport_time2(timestamp_t msg_time) {
 	if (lamport_time < msg_time) lamport_time = msg_time;
 	++lamport_time;
+}
+
+int8_t compare_req_time(struct Request first, struct Request second) {
+	if (first.req_time > second.req_time) return 1;
+	if (first.req_time < second.req_time) return -1;
+	return 0;
+}
+
+int8_t compare_locpid(struct Request first, struct Request second) {
+	if (first.locpid > second.locpid) return 1;
+	if (first.locpid < second.locpid) return -1;
+	return 0;
+}
+
+int8_t compare_requests(struct Request first, struct Request second) {
+	int8_t time_comparison = compare_req_time(first, second);
+	if (time_comparison != 0) return time_comparison;
+
+	return compare_locpid(first, second);
 }
 
 int is_request_before(struct Context *ctx, Message *msg) {
