@@ -10,38 +10,29 @@ int createPipe(Descriptor *pipe_descs, int index) {
 
 int setPipeFlags(Descriptor *pipe_descs, int index, int flags) {
     int status = fcntl(pipe_descs[2 * index], F_SETFL, fcntl(pipe_descs[2 * index], F_GETFL, 0) | flags);
-    if (status) return status;
-
-    return fcntl(pipe_descs[2 * index + 1], F_SETFL, fcntl(pipe_descs[2 * index + 1], F_GETFL, 0) | flags);
+    return status ? status : fcntl(pipe_descs[2 * index + 1], F_SETFL, fcntl(pipe_descs[2 * index + 1], F_GETFL, 0) | flags);
 }
 
-void logPipeDescriptor(struct Pipes *pipes, int i) {
+void logPipeDescriptor(const struct Pipes *pipes, int i) {
     fprintf(pipes->plog, "Opened pipe descriptors %d and %d\n", pipes->pipe_descs[2 * i], pipes->pipe_descs[2 * i + 1]);
     fflush(pipes->plog);
 }
 
 int openPipe(Descriptor *pipe_descs, int index, int flags) {
     int status = createPipe(pipe_descs, index);
-    if (status) return status;
-
-    return setPipeFlags(pipe_descs, index, flags);
+    return status ? status : setPipeFlags(pipe_descs, index, flags);
 }
 
 int initPipes(struct Pipes *pipes, local_id procnum, int flags, const char *log_file) {
-    int status = 0;
     pipes->size = procnum;
     pipes->pipe_descs = malloc(2 * procnum * (procnum - 1) * sizeof(Descriptor));
     pipes->plog = fopen(log_file, "w");
-
     for (int i = 0; i < procnum * (procnum - 1); ++i) {
-        status = openPipe(pipes->pipe_descs, i, flags);
-        if (status) {
-            closePipes(pipes);
-            return status;
-        }
+        int status = openPipe(pipes->pipe_descs, i, flags);
+        if (status) return status;
         logPipeDescriptor(pipes, i);
     }
-    return status;
+    return 0;
 }
 
 int isValidAddress(const struct Pipes *pipes, struct PipeDescriptor address) {
@@ -55,11 +46,10 @@ int calculatePipeIndex(const struct Pipes *pipes, struct PipeDescriptor address)
 
 Descriptor accessPipe(const struct Pipes *pipes, struct PipeDescriptor address) {
     if (!isValidAddress(pipes, address)) return -1;
-    int index = calculatePipeIndex(pipes, address);
-    return pipes->pipe_descs[2 * index + address.mode];
+    return pipes->pipe_descs[2 * calculatePipeIndex(pipes, address) + address.mode];
 }
 
-void closePipeDescriptor(struct Pipes *pipes, local_id procid, Descriptor pipe_desc, const char *pipe_type) {
+void closePipeDescriptor(const struct Pipes *pipes, local_id procid, Descriptor pipe_desc, const char *pipe_type) {
     close(pipe_desc);
     fprintf(pipes->plog, "Process %d closed pipe descriptor %d for %s\n", procid, pipe_desc, pipe_type);
 }
@@ -78,10 +68,9 @@ void closeUnusedPipes(const struct Pipes *pipes, local_id procid) {
     fflush(pipes->plog);
 }
 
-int calculatePipeFromAndTo(int pipe_index, const struct Pipes *pipes, struct PipeDescriptor *res) {
+void calculatePipeFromAndTo(int pipe_index, const struct Pipes *pipes, struct PipeDescriptor *res) {
     res->from = pipe_index / (pipes->size - 1);
     res->to = pipe_index % (pipes->size - 1);
-    return 0;
 }
 
 void adjustPipeTo(struct PipeDescriptor *res) {
