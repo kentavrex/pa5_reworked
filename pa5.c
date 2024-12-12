@@ -469,7 +469,7 @@ int send_started_message(struct Context *ctx) {
     return 0;
 }
 
-void initialize_rec_started_and_done(struct Context *ctx) {
+void init_process_status(struct Context *ctx) {
 	for (local_id i = 1; i <= ctx->children; ++i) {
 		ctx->rec_started[i] = (i == ctx->locpid);
 	}
@@ -480,39 +480,54 @@ void initialize_rec_started_and_done(struct Context *ctx) {
 	ctx->num_done = 0;
 }
 
-void process_message(struct Context *ctx, Message *msg, int8_t *active) {
-	switch (msg->s_header.s_type) {
-		case STARTED:
-			if (handle_started_case(ctx, &lamport_time, msg, active)) {
-				return 5;
-			}
-		break;
-		case CS_REQUEST:
-			if (handle_cs_request2(ctx, &lamport_time, msg, active)) {
-				return 8;
-			}
-		break;
-		case DONE:
-			handle_done_case(ctx, &lamport_time, msg);
-		break;
-		default:
-			break;
+int handle_started_message(struct Context *ctx, int8_t *active, Message *msg) {
+	if (handle_started_case(ctx, &lamport_time, msg, active)) {
+		return 5;
 	}
+	return 0;
 }
 
-int handle_active_messages(struct Context *ctx, int8_t *active) {
+int handle_cs_request_message(struct Context *ctx, int8_t *active, Message *msg) {
+	if (handle_cs_request2(ctx, &lamport_time, msg, active)) {
+		return 8;
+	}
+	return 0;
+}
+
+void handle_done_message(struct Context *ctx, Message *msg) {
+	handle_done_case(ctx, &lamport_time, msg);
+}
+
+int process_messages(struct Context *ctx, int8_t *active) {
 	while (*active || ctx->num_done < ctx->children) {
 		Message msg;
 		while (receive_any(ctx, &msg)) {}
-		process_message(ctx, &msg, active);
+
+		switch (msg.s_header.s_type) {
+			case STARTED:
+				if (handle_started_message(ctx, active, &msg)) {
+					return 5;
+				}
+			break;
+			case CS_REQUEST:
+				if (handle_cs_request_message(ctx, active, &msg)) {
+					return 8;
+				}
+			break;
+			case DONE:
+				handle_done_message(ctx, &msg);
+			break;
+			default:
+				break;
+		}
 		fflush(ctx->events);
 	}
 	return 0;
 }
 
 int handle_child(struct Context *ctx, int8_t *active) {
-	initialize_rec_started_and_done(ctx);
-	return handle_active_messages(ctx, active);
+	init_process_status(ctx);
+	return process_messages(ctx, active);
 }
 
 int main(int argc, char *argv[]) {
