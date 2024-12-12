@@ -274,34 +274,18 @@ void printUsage(char *programName) {
 	fprintf(stderr, "Usage: %s [--mutexl] -p N [--mutexl]\n", programName);
 }
 
-int parse_children_argument(int argc, char *argv[], struct Context *ctx, int *rp) {
-	if (*rp) {
-		ctx->children = atoi(argv[argc - 1]);
-		*rp = 0;
-	}
-	return 0;
-}
-
-int process_mutexl_argument(char *arg, struct Context *ctx) {
-	if (strcmp(arg, "--mutexl") == 0) {
-		ctx->mutexl = 1;
-	}
-	return 0;
-}
-
-int process_p_argument(char *arg, int *rp) {
-	if (strcmp(arg, "-p") == 0) {
-		*rp = 1;
-	}
-	return 0;
-}
-
 int parseArguments(int argc, char *argv[], struct Context *ctx) {
-	int rp = 0;
+	int8_t rp = 0;
 	for (int i = 1; i < argc; ++i) {
-		process_mutexl_argument(argv[i], ctx);
-		process_p_argument(argv[i], &rp);
-		parse_children_argument(i, argv, ctx, &rp);
+		if (rp) {
+			ctx->children = atoi(argv[i]);
+			rp = 0;
+		}
+		if (strcmp(argv[i], "--mutexl") == 0) {
+			ctx->mutexl = 1;
+		} else if (strcmp(argv[i], "-p") == 0) {
+			rp = 1;
+		}
 	}
 	return 0;
 }
