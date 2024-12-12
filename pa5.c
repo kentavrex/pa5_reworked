@@ -26,23 +26,40 @@ int8_t compare_requests(struct Request first, struct Request second) {
     return 0;
 }
 
+void update_lamport_time(int msg_time) {
+	if (lamport_time < msg_time) lamport_time = msg_time;
+	++lamport_time;
+}
+
+int is_request_before(struct Context *ctx, Message *msg) {
+	return compare_requests((struct Request){ctx->msg_sender, msg->s_header.s_local_time}, ctx->reqs[ctx->locpid]) < 0;
+}
+
+void send_cs_reply(struct Context *ctx, Message *msg) {
+	++lamport_time;
+	Message reply;
+	reply.s_header.s_magic = MESSAGE_MAGIC;
+	reply.s_header.s_type = CS_REPLY;
+	reply.s_header.s_payload_len = 0;
+	reply.s_header.s_local_time = get_lamport_time();
+	send(ctx, ctx->msg_sender, &reply);
+}
+
+void update_request(struct Context *ctx, Message *msg) {
+	ctx->reqs[ctx->msg_sender].locpid = ctx->msg_sender;
+	ctx->reqs[ctx->msg_sender].req_time = msg->s_header.s_local_time;
+}
+
 void handle_cs_request(struct Context *ctx, Message *msg, int8_t *rep_arr, local_id *replies) {
-    if (ctx->mutexl) {
-        if (lamport_time < msg->s_header.s_local_time) lamport_time = msg->s_header.s_local_time;
-        ++lamport_time;
-        if (compare_requests((struct Request){ctx->msg_sender, msg->s_header.s_local_time}, ctx->reqs[ctx->locpid]) < 0) {
-            ++lamport_time;
-            Message reply;
-            reply.s_header.s_magic = MESSAGE_MAGIC;
-            reply.s_header.s_type = CS_REPLY;
-            reply.s_header.s_payload_len = 0;
-            reply.s_header.s_local_time = get_lamport_time();
-            if (send(ctx, ctx->msg_sender, &reply)) return;
-        } else {
-            ctx->reqs[ctx->msg_sender].locpid = ctx->msg_sender;
-            ctx->reqs[ctx->msg_sender].req_time = msg->s_header.s_local_time;
-        }
-    }
+	if (!ctx->mutexl) return;
+
+	update_lamport_time(msg->s_header.s_local_time);
+
+	if (is_request_before(ctx, msg)) {
+		send_cs_reply(ctx, msg);
+	} else {
+		update_request(ctx, msg);
+	}
 }
 
 void handle_cs_reply(struct Context *ctx, Message *msg, int8_t *rep_arr, local_id *replies) {
