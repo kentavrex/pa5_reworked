@@ -129,12 +129,18 @@ void reset_request(struct Context *ctx) {
 	ctx->reqs[ctx->locpid].req_time = 0;
 }
 
+int send_reply_to_process(struct Context *ctx, local_id i, Message *reply) {
+	if (send(ctx, i, reply)) return 1;
+	ctx->reqs[i].locpid = 0;
+	ctx->reqs[i].req_time = 0;
+	return 0;
+}
+
 int send_cs_replies(struct Context *ctx, Message *reply) {
 	for (local_id i = 1; i <= ctx->children; ++i) {
 		if (ctx->reqs[i].locpid > 0) {
-			if (send(ctx, i, reply)) return 1;
-			ctx->reqs[i].locpid = 0;
-			ctx->reqs[i].req_time = 0;
+			int result = send_reply_to_process(ctx, i, reply);
+			if (result) return 1;
 		}
 	}
 	return 0;
