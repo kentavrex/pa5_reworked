@@ -262,57 +262,78 @@ int handle_cs_request2(struct Context *ctx, timestamp_t *lamport_time, const Mes
 	return 0;
 }
 
+int update_lamport_time(timestamp_t *lamport_time, const Message *msg) {
+    if (*lamport_time < msg->s_header.s_local_time)
+        *lamport_time = msg->s_header.s_local_time;
+    ++(*lamport_time);
+    return 0;
+}
+
+int increment_started_count(struct Context *ctx, timestamp_t *lamport_time) {
+    ++ctx->num_started;
+    if (ctx->num_started == ctx->children) {
+        printf(log_received_all_started_fmt, get_lamport_time(), ctx->locpid);
+        fprintf(ctx->events, log_received_all_started_fmt, get_lamport_time(), ctx->locpid);
+        return 1;
+    }
+    return 0;
+}
+
+int handle_cs_operation(struct Context *ctx, int16_t i) {
+    char log[50];
+    sprintf(log, log_loop_operation_fmt, ctx->locpid, i, ctx->locpid * 5);
+    if (ctx->mutexl) {
+        int status = request_cs(ctx);
+        if (status) {
+            fprintf(stderr, "Child %d: request_cs() resulted %d\n", ctx->locpid, status);
+            closePipes(&ctx->pipes);
+            fclose(ctx->events);
+            return 5;
+        }
+    }
+    print(log);
+    if (ctx->mutexl) {
+        int status = release_cs(ctx);
+        if (status) {
+            fprintf(stderr, "Child %d: release_cs() resulted %d\n", ctx->locpid, status);
+            closePipes(&ctx->pipes);
+            fclose(ctx->events);
+            return 6;
+        }
+    }
+    return 0;
+}
+
+int send_done_message(struct Context *ctx, timestamp_t *lamport_time) {
+    ++(*lamport_time);
+    Message done;
+    done.s_header.s_magic = MESSAGE_MAGIC;
+    done.s_header.s_type = DONE;
+    sprintf(done.s_payload, log_done_fmt, get_lamport_time(), ctx->locpid, 0);
+    done.s_header.s_payload_len = strlen(done.s_payload);
+    done.s_header.s_local_time = get_lamport_time();
+    puts(done.s_payload);
+    fputs(done.s_payload, ctx->events);
+    if (send_multicast(ctx, &done)) {
+        fprintf(stderr, "Child %d: failed to send DONE message\n", ctx->locpid);
+        closePipes(&ctx->pipes);
+        fclose(ctx->events);
+        return 7;
+    }
+    return 0;
+}
+
 int handle_started_case(struct Context *ctx, timestamp_t *lamport_time, const Message *msg, int8_t *active) {
     if (ctx->num_started < ctx->children) {
         if (!ctx->rec_started[ctx->msg_sender]) {
-            if (*lamport_time < msg->s_header.s_local_time)
-                *lamport_time = msg->s_header.s_local_time;
-            ++(*lamport_time);
+            if (update_lamport_time(lamport_time, msg)) return 1;
             ctx->rec_started[ctx->msg_sender] = 1;
-            ++ctx->num_started;
-            if (ctx->num_started == ctx->children) {
-                printf(log_received_all_started_fmt, get_lamport_time(), ctx->locpid);
-                fprintf(ctx->events, log_received_all_started_fmt, get_lamport_time(), ctx->locpid);
-
+            if (increment_started_count(ctx, lamport_time)) {
                 for (int16_t i = 1; i <= ctx->locpid * 5; ++i) {
-                    char log[50];
-                    sprintf(log, log_loop_operation_fmt, ctx->locpid, i, ctx->locpid * 5);
-                    if (ctx->mutexl) {
-                        int status = request_cs(ctx);
-                        if (status) {
-                            fprintf(stderr, "Child %d: request_cs() resulted %d\n", ctx->locpid, status);
-                            closePipes(&ctx->pipes);
-                            fclose(ctx->events);
-                            return 5;
-                        }
-                    }
-                    print(log);
-                    if (ctx->mutexl) {
-                        int status = release_cs(ctx);
-                        if (status) {
-                            fprintf(stderr, "Child %d: release_cs() resulted %d\n", ctx->locpid, status);
-                            closePipes(&ctx->pipes);
-                            fclose(ctx->events);
-                            return 6;
-                        }
-                    }
+                    int result = handle_cs_operation(ctx, i);
+                    if (result != 0) return result;
                 }
-
-                ++(*lamport_time);
-                Message done;
-                done.s_header.s_magic = MESSAGE_MAGIC;
-                done.s_header.s_type = DONE;
-                sprintf(done.s_payload, log_done_fmt, get_lamport_time(), ctx->locpid, 0);
-                done.s_header.s_payload_len = strlen(done.s_payload);
-                done.s_header.s_local_time = get_lamport_time();
-                puts(done.s_payload);
-                fputs(done.s_payload, ctx->events);
-                if (send_multicast(ctx, &done)) {
-                    fprintf(stderr, "Child %d: failed to send DONE message\n", ctx->locpid);
-                    closePipes(&ctx->pipes);
-                    fclose(ctx->events);
-                    return 7;
-                }
+                if (send_done_message(ctx, lamport_time)) return 7;
                 ctx->rec_done[ctx->locpid] = 1;
                 ++ctx->num_done;
                 if (ctx->num_done == ctx->children) {
