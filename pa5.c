@@ -26,17 +26,31 @@ int8_t compare_requests(struct Request first, struct Request second) {
     return 0;
 }
 
-void handle_cs_request(struct Context *ctx, Message *msg, int8_t *rep_arr, local_id *replies) {
+void update_lamport_time_for_request(struct Context *ctx, Message *msg) {
+    if (lamport_time < msg->s_header.s_local_time) {
+        lamport_time = msg->s_header.s_local_time;
+    }
+    ++lamport_time;
+}
+
+int should_send_cs_reply(struct Context *ctx, Message *msg) {
+    return compare_requests((struct Request){ctx->msg_sender, msg->s_header.s_local_time}, ctx->reqs[ctx->locpid]) < 0;
+}
+
+void prepare_cs_reply(struct Context *ctx, Message *reply) {
+    reply->s_header.s_magic = MESSAGE_MAGIC;
+    reply->s_header.s_type = CS_REPLY;
+    reply->s_header.s_payload_len = 0;
+    reply->s_header.s_local_time = get_lamport_time();
+}
+
+int handle_cs_request(struct Context *ctx, Message *msg, int8_t *rep_arr, local_id *replies) {
     if (ctx->mutexl) {
-        if (lamport_time < msg->s_header.s_local_time) lamport_time = msg->s_header.s_local_time;
-        ++lamport_time;
-        if (compare_requests((struct Request){ctx->msg_sender, msg->s_header.s_local_time}, ctx->reqs[ctx->locpid]) < 0) {
-            ++lamport_time;
+        update_lamport_time_for_request(ctx, msg);
+
+        if (should_send_cs_reply(ctx, msg)) {
             Message reply;
-            reply.s_header.s_magic = MESSAGE_MAGIC;
-            reply.s_header.s_type = CS_REPLY;
-            reply.s_header.s_payload_len = 0;
-            reply.s_header.s_local_time = get_lamport_time();
+            prepare_cs_reply(ctx, &reply);
             if (send(ctx, ctx->msg_sender, &reply)) return;
         } else {
             ctx->reqs[ctx->msg_sender].locpid = ctx->msg_sender;
@@ -73,25 +87,41 @@ void handle_done(struct Context *ctx, Message *msg, int8_t *rep_arr, local_id *r
     }
 }
 
-int release_cs(const void * self) {
-	struct Context *ctx = (struct Context*)self;
-	ctx->reqs[ctx->locpid].locpid = 0;
-    ctx->reqs[ctx->locpid].req_time = 0;
+int prepare_cs_reply(struct Context *ctx, Message *reply) {
 	++lamport_time;
-	Message reply;
-	reply.s_header.s_magic = MESSAGE_MAGIC;
-	reply.s_header.s_type = CS_REPLY;
-	reply.s_header.s_payload_len = 0;
-	reply.s_header.s_local_time = get_lamport_time();
-	for (local_id i = 1; i <= ctx->children; ++i) {
-        if (ctx->reqs[i].locpid > 0) {
-            if (send(ctx, i, &reply)) return 1;
-            ctx->reqs[i].locpid = 0;
-            ctx->reqs[i].req_time = 0;
-        }
-    }
+	reply->s_header.s_magic = MESSAGE_MAGIC;
+	reply->s_header.s_type = CS_REPLY;
+	reply->s_header.s_payload_len = 0;
+	reply->s_header.s_local_time = get_lamport_time();
 	return 0;
 }
+
+void reset_request(struct Context *ctx) {
+	ctx->reqs[ctx->locpid].locpid = 0;
+	ctx->reqs[ctx->locpid].req_time = 0;
+}
+
+int send_cs_replies(struct Context *ctx, Message *reply) {
+	for (local_id i = 1; i <= ctx->children; ++i) {
+		if (ctx->reqs[i].locpid > 0) {
+			if (send(ctx, i, reply)) return 1;
+			ctx->reqs[i].locpid = 0;
+			ctx->reqs[i].req_time = 0;
+		}
+	}
+	return 0;
+}
+
+int release_cs(const void *self) {
+	struct Context *ctx = (struct Context*)self;
+	Message reply;
+
+	prepare_cs_reply(ctx, &reply);
+	reset_request(ctx);
+
+	return send_cs_replies(ctx, &reply);
+}
+
 int prepare_cs_request(struct Context *ctx, Message *request) {
 	++lamport_time;
 	ctx->reqs[ctx->locpid].locpid = ctx->locpid;
