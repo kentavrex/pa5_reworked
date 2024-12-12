@@ -326,20 +326,32 @@ void closeUnusedPipesInParent(struct Context *ctx) {
 	closeUnusedPipes(&ctx->pipes, ctx->locpid);
 }
 
+int update_lamport_time_done_case(timestamp_t *lamport_time, const Message *msg) {
+	if (*lamport_time < msg->s_header.s_local_time) {
+		*lamport_time = msg->s_header.s_local_time;
+	}
+	++(*lamport_time);
+	return 0;
+}
+
+int process_done_case_message(struct Context *ctx, timestamp_t *lamport_time, const Message *msg) {
+	if (!ctx->rec_done[ctx->msg_sender]) {
+		update_lamport_time_done_case(lamport_time, msg);
+		ctx->rec_done[ctx->msg_sender] = 1;
+		++ctx->num_done;
+
+		if (ctx->num_done == ctx->children) {
+			printf(log_received_all_done_fmt, get_lamport_time(), ctx->locpid);
+			fprintf(ctx->events, log_received_all_done_fmt, get_lamport_time(), ctx->locpid);
+		}
+	}
+	return 0;
+}
+
 void handle_done_case(struct Context *ctx, timestamp_t *lamport_time, const Message *msg) {
-    if (ctx->num_done < ctx->children) {
-        if (!ctx->rec_done[ctx->msg_sender]) {
-            if (*lamport_time < msg->s_header.s_local_time)
-                *lamport_time = msg->s_header.s_local_time;
-            ++(*lamport_time);
-            ctx->rec_done[ctx->msg_sender] = 1;
-            ++ctx->num_done;
-            if (ctx->num_done == ctx->children) {
-                printf(log_received_all_done_fmt, get_lamport_time(), ctx->locpid);
-                fprintf(ctx->events, log_received_all_done_fmt, get_lamport_time(), ctx->locpid);
-            }
-        }
-    }
+	if (ctx->num_done < ctx->children) {
+		process_done_case_message(ctx, lamport_time, msg);
+	}
 }
 
 int handle_cs_request2(struct Context *ctx, timestamp_t *lamport_time, const Message *msg, int8_t *active) {
