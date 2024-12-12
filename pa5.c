@@ -469,41 +469,28 @@ int send_started_message(struct Context *ctx) {
     return 0;
 }
 
-int handle_child(struct Context *ctx, int8_t *active) {
-	initialize_rec_started(ctx);
-	ctx->num_started = 1;
-	initialize_rec_done(ctx);
-	ctx->num_done = 0;
-
-	while (*active || ctx->num_done < ctx->children) {
-		Message msg;
-		while (receive_any(ctx, &msg)) {}
-
-		if (handle_message(ctx, &msg, active)) return 5;
-		fflush(ctx->events);
-	}
-	return 0;
-}
-
-void initialize_rec_started(struct Context *ctx) {
+void initialize_rec_started_and_done(struct Context *ctx) {
 	for (local_id i = 1; i <= ctx->children; ++i) {
 		ctx->rec_started[i] = (i == ctx->locpid);
 	}
-}
-
-void initialize_rec_done(struct Context *ctx) {
+	ctx->num_started = 1;
 	for (local_id i = 1; i <= ctx->children; ++i) {
 		ctx->rec_done[i] = 0;
 	}
+	ctx->num_done = 0;
 }
 
-int handle_message(struct Context *ctx, Message *msg, int8_t *active) {
+void process_message(struct Context *ctx, Message *msg, int8_t *active) {
 	switch (msg->s_header.s_type) {
 		case STARTED:
-			if (handle_started_case(ctx, &lamport_time, msg, active)) return 1;
+			if (handle_started_case(ctx, &lamport_time, msg, active)) {
+				return 5;
+			}
 		break;
 		case CS_REQUEST:
-			if (handle_cs_request2(ctx, &lamport_time, msg, active)) return 2;
+			if (handle_cs_request2(ctx, &lamport_time, msg, active)) {
+				return 8;
+			}
 		break;
 		case DONE:
 			handle_done_case(ctx, &lamport_time, msg);
@@ -511,7 +498,21 @@ int handle_message(struct Context *ctx, Message *msg, int8_t *active) {
 		default:
 			break;
 	}
+}
+
+int handle_active_messages(struct Context *ctx, int8_t *active) {
+	while (*active || ctx->num_done < ctx->children) {
+		Message msg;
+		while (receive_any(ctx, &msg)) {}
+		process_message(ctx, &msg, active);
+		fflush(ctx->events);
+	}
 	return 0;
+}
+
+int handle_child(struct Context *ctx, int8_t *active) {
+	initialize_rec_started_and_done(ctx);
+	return handle_active_messages(ctx, active);
 }
 
 int main(int argc, char *argv[]) {
