@@ -274,17 +274,31 @@ void printUsage(char *programName) {
 	fprintf(stderr, "Usage: %s [--mutexl] -p N [--mutexl]\n", programName);
 }
 
+int handleMutexlFlag(struct Context *ctx) {
+	ctx->mutexl = 1;
+	return 0;
+}
+
+int handlePFlag(int argc, char *argv[], int *index, struct Context *ctx) {
+	if (*index + 1 < argc) {
+		ctx->children = atoi(argv[*index + 1]);
+		(*index)++;
+	}
+	return 0;
+}
+
+int handleOtherFlags(char *arg, struct Context *ctx) {
+	return 0;
+}
+
 int parseArguments(int argc, char *argv[], struct Context *ctx) {
-	int8_t rp = 0;
 	for (int i = 1; i < argc; ++i) {
-		if (rp) {
-			ctx->children = atoi(argv[i]);
-			rp = 0;
-		}
 		if (strcmp(argv[i], "--mutexl") == 0) {
-			ctx->mutexl = 1;
+			handleMutexlFlag(ctx);
 		} else if (strcmp(argv[i], "-p") == 0) {
-			rp = 1;
+			handlePFlag(argc, argv, &i, ctx);
+		} else {
+			handleOtherFlags(argv[i], ctx);
 		}
 	}
 	return 0;
