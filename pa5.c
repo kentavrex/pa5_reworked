@@ -238,7 +238,7 @@ void handle_done_case(struct Context *ctx, timestamp_t *lamport_time, const Mess
     }
 }
 
-int handle_cs_request(struct Context *ctx, timestamp_t *lamport_time, const Message *msg, int8_t *active) {
+int handle_cs_request2(struct Context *ctx, timestamp_t *lamport_time, const Message *msg, int8_t *active) {
 	if (*active && ctx->mutexl) {
 		if (*lamport_time < msg->s_header.s_local_time) {
 			*lamport_time = msg->s_header.s_local_time;
@@ -395,7 +395,7 @@ int main(int argc, char *argv[]) {
 					}
 					break;
 				case CS_REQUEST:
-					if (handle_cs_request(&ctx, &lamport_time, &msg, &active)) {
+					if (handle_cs_request2(&ctx, &lamport_time, &msg, &active)) {
 						return 8;
 					}
 					break;
