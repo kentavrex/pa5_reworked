@@ -297,7 +297,7 @@ int process_p_argument(char *arg, int *rp) {
 }
 
 int parseArguments(int argc, char *argv[], struct Context *ctx) {
-	int8_t rp = 0;
+	int rp = 0;
 	for (int i = 1; i < argc; ++i) {
 		process_mutexl_argument(argv[i], ctx);
 		process_p_argument(argv[i], &rp);
