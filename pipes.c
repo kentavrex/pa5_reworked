@@ -54,16 +54,25 @@ void closePipeDescriptor(const struct Pipes *pipes, local_id procid, Descriptor 
     fprintf(pipes->plog, "Process %d closed pipe descriptor %d for %s\n", procid, pipe_desc, pipe_type);
 }
 
+void close_unused_pipe_for_proc(const struct Pipes *pipes, local_id i, local_id j, local_id procid) {
+    Descriptor rd = accessPipe(pipes, (struct PipeDescriptor){i, j, READING});
+    Descriptor wr = accessPipe(pipes, (struct PipeDescriptor){i, j, WRITING});
+
+    if (i != procid) closePipeDescriptor(pipes, procid, wr, "writing");
+    if (j != procid) closePipeDescriptor(pipes, procid, rd, "reading");
+}
+
+void close_unused_pipes_for_i(const struct Pipes *pipes, local_id i, local_id procid) {
+    for (local_id j = 0; j < pipes->size; ++j) {
+        if (i == j) continue;
+        close_unused_pipe_for_proc(pipes, i, j, procid);
+    }
+}
+
+
 void closeUnusedPipes(const struct Pipes *pipes, local_id procid) {
     for (local_id i = 0; i < pipes->size; ++i) {
-        for (local_id j = 0; j < pipes->size; ++j) {
-            if (i != j) {
-                Descriptor rd = accessPipe(pipes, (struct PipeDescriptor){i, j, READING});
-                Descriptor wr = accessPipe(pipes, (struct PipeDescriptor){i, j, WRITING});
-                if (i != procid) closePipeDescriptor(pipes, procid, wr, "writing");
-                if (j != procid) closePipeDescriptor(pipes, procid, rd, "reading");
-            }
-        }
+        close_unused_pipes_for_i(pipes, i, procid);
     }
     fflush(pipes->plog);
 }
