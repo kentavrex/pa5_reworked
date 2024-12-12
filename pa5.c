@@ -26,7 +26,7 @@ int8_t compare_requests(struct Request first, struct Request second) {
     return 0;
 }
 
-void update_lamport_time(int msg_time) {
+void update_lamport_time2(timestamp_t msg_time) {
 	if (lamport_time < msg_time) lamport_time = msg_time;
 	++lamport_time;
 }
@@ -53,7 +53,7 @@ void update_request(struct Context *ctx, Message *msg) {
 void handle_cs_request(struct Context *ctx, Message *msg, int8_t *rep_arr, local_id *replies) {
 	if (!ctx->mutexl) return;
 
-	update_lamport_time(msg->s_header.s_local_time);
+	update_lamport_time2(msg->s_header.s_local_time);
 
 	if (is_request_before(ctx, msg)) {
 		send_cs_reply(ctx, msg);
