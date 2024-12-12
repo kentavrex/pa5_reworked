@@ -71,23 +71,37 @@ void handle_cs_reply(struct Context *ctx, Message *msg, int8_t *rep_arr, local_i
     }
 }
 
+int update_lamport_time(struct Context *ctx, Message *msg) {
+	if (lamport_time < msg->s_header.s_local_time) {
+		lamport_time = msg->s_header.s_local_time;
+	}
+	++lamport_time;
+	return 0;
+}
+
+int process_done_message(struct Context *ctx, Message *msg, int8_t *rep_arr, local_id *replies) {
+	if (!ctx->rec_done[ctx->msg_sender]) {
+		update_lamport_time(ctx, msg);
+		ctx->rec_done[ctx->msg_sender] = 1;
+		++ctx->num_done;
+
+		if (ctx->num_done == ctx->children) {
+			printf(log_received_all_done_fmt, get_lamport_time(), ctx->locpid);
+			fprintf(ctx->events, log_received_all_done_fmt, get_lamport_time(), ctx->locpid);
+		}
+
+		if (!rep_arr[ctx->msg_sender]) {
+			rep_arr[ctx->msg_sender] = 1;
+			++(*replies);
+		}
+	}
+	return 0;
+}
+
 void handle_done(struct Context *ctx, Message *msg, int8_t *rep_arr, local_id *replies) {
-    if (ctx->num_done < ctx->children) {
-        if (!ctx->rec_done[ctx->msg_sender]) {
-            if (lamport_time < msg->s_header.s_local_time) lamport_time = msg->s_header.s_local_time;
-            ++lamport_time;
-            ctx->rec_done[ctx->msg_sender] = 1;
-            ++ctx->num_done;
-            if (ctx->num_done == ctx->children) {
-                printf(log_received_all_done_fmt, get_lamport_time(), ctx->locpid);
-                fprintf(ctx->events, log_received_all_done_fmt, get_lamport_time(), ctx->locpid);
-            }
-            if (!rep_arr[ctx->msg_sender]) {
-                rep_arr[ctx->msg_sender] = 1;
-                ++(*replies);
-            }
-        }
-    }
+	if (ctx->num_done < ctx->children) {
+		process_done_message(ctx, msg, rep_arr, replies);
+	}
 }
 
 int prepare_cs_reply(struct Context *ctx, Message *reply) {
