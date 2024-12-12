@@ -71,7 +71,7 @@ void handle_cs_reply(struct Context *ctx, Message *msg, int8_t *rep_arr, local_i
     }
 }
 
-int update_lamport_time(struct Context *ctx, Message *msg) {
+int update_lamport_time10(struct Context *ctx, Message *msg) {
 	if (lamport_time < msg->s_header.s_local_time) {
 		lamport_time = msg->s_header.s_local_time;
 	}
@@ -81,7 +81,7 @@ int update_lamport_time(struct Context *ctx, Message *msg) {
 
 int process_done_message(struct Context *ctx, Message *msg, int8_t *rep_arr, local_id *replies) {
 	if (!ctx->rec_done[ctx->msg_sender]) {
-		update_lamport_time(ctx, msg);
+		update_lamport_time10(ctx, msg);
 		ctx->rec_done[ctx->msg_sender] = 1;
 		++ctx->num_done;
 
