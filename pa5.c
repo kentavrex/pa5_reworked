@@ -242,19 +242,31 @@ void handle_started(struct Context *ctx, Message *msg) {
 	}
 }
 
+int update_lamport_time_done2(struct Context *ctx, Message *msg) {
+	if (lamport_time < msg->s_header.s_local_time) {
+		lamport_time = msg->s_header.s_local_time;
+	}
+	++lamport_time;
+	return 0;
+}
+
+int process_done_message2(struct Context *ctx, Message *msg) {
+	if (!ctx->rec_done[ctx->msg_sender]) {
+		update_lamport_time_done2(ctx, msg);
+		ctx->rec_done[ctx->msg_sender] = 1;
+		++ctx->num_done;
+
+		if (ctx->num_done == ctx->children) {
+			printf(log_received_all_done_fmt, get_lamport_time(), ctx->locpid);
+			fprintf(ctx->events, log_received_all_done_fmt, get_lamport_time(), ctx->locpid);
+		}
+	}
+	return 0;
+}
+
 void handle_done2(struct Context *ctx, Message *msg) {
 	if (ctx->num_done < ctx->children) {
-		if (!ctx->rec_done[ctx->msg_sender]) {
-			if (lamport_time < msg->s_header.s_local_time)
-				lamport_time = msg->s_header.s_local_time;
-			++lamport_time;
-			ctx->rec_done[ctx->msg_sender] = 1;
-			++ctx->num_done;
-			if (ctx->num_done == ctx->children) {
-				printf(log_received_all_done_fmt, get_lamport_time(), ctx->locpid);
-				fprintf(ctx->events, log_received_all_done_fmt, get_lamport_time(), ctx->locpid);
-			}
-		}
+		process_done_message2(ctx, msg);
 	}
 }
 
