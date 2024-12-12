@@ -328,29 +328,50 @@ int increment_started_count(struct Context *ctx, timestamp_t *lamport_time) {
     return 0;
 }
 
+int log_cs_operation(struct Context *ctx, int16_t i) {
+	char log[50];
+	sprintf(log, log_loop_operation_fmt, ctx->locpid, i, ctx->locpid * 5);
+	print(log);
+	return 0;
+}
+
+int request_critical_section(struct Context *ctx) {
+	if (ctx->mutexl) {
+		int status = request_cs(ctx);
+		if (status) {
+			fprintf(stderr, "Child %d: request_cs() resulted %d\n", ctx->locpid, status);
+			closePipes(&ctx->pipes);
+			fclose(ctx->events);
+			return 5;
+		}
+	}
+	return 0;
+}
+
+int release_critical_section(struct Context *ctx) {
+	if (ctx->mutexl) {
+		int status = release_cs(ctx);
+		if (status) {
+			fprintf(stderr, "Child %d: release_cs() resulted %d\n", ctx->locpid, status);
+			closePipes(&ctx->pipes);
+			fclose(ctx->events);
+			return 6;
+		}
+	}
+	return 0;
+}
+
 int handle_cs_operation(struct Context *ctx, int16_t i) {
-    char log[50];
-    sprintf(log, log_loop_operation_fmt, ctx->locpid, i, ctx->locpid * 5);
-    if (ctx->mutexl) {
-        int status = request_cs(ctx);
-        if (status) {
-            fprintf(stderr, "Child %d: request_cs() resulted %d\n", ctx->locpid, status);
-            closePipes(&ctx->pipes);
-            fclose(ctx->events);
-            return 5;
-        }
-    }
-    print(log);
-    if (ctx->mutexl) {
-        int status = release_cs(ctx);
-        if (status) {
-            fprintf(stderr, "Child %d: release_cs() resulted %d\n", ctx->locpid, status);
-            closePipes(&ctx->pipes);
-            fclose(ctx->events);
-            return 6;
-        }
-    }
-    return 0;
+	int result = log_cs_operation(ctx, i);
+	if (result) return result;
+
+	result = request_critical_section(ctx);
+	if (result) return result;
+
+	result = release_critical_section(ctx);
+	if (result) return result;
+
+	return 0;
 }
 
 int send_done_message(struct Context *ctx, timestamp_t *lamport_time) {
