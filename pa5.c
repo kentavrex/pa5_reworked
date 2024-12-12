@@ -92,45 +92,61 @@ int release_cs(const void * self) {
     }
 	return 0;
 }
-
-int request_cs(const void * self) {
-	struct Context *ctx = (struct Context*)self;
+int prepare_cs_request(struct Context *ctx, Message *request) {
 	++lamport_time;
 	ctx->reqs[ctx->locpid].locpid = ctx->locpid;
 	ctx->reqs[ctx->locpid].req_time = get_lamport_time();
-	Message request;
-	request.s_header.s_magic = MESSAGE_MAGIC;
-	request.s_header.s_type = CS_REQUEST;
-	request.s_header.s_payload_len = 0;
-	request.s_header.s_local_time = get_lamport_time();
-	if (send_multicast(ctx, &request)) return 1;
-	local_id replies = 0;
-	int8_t rep_arr[MAX_PROCESS_ID+1];
+	request->s_header.s_magic = MESSAGE_MAGIC;
+	request->s_header.s_type = CS_REQUEST;
+	request->s_header.s_payload_len = 0;
+	request->s_header.s_local_time = get_lamport_time();
+	return send_multicast(ctx, request);
+}
+
+void initialize_reply_tracking(struct Context *ctx, int8_t *rep_arr, local_id *replies) {
+	*replies = 0;
 	for (local_id i = 1; i <= ctx->children; ++i) {
-		replies += ctx->rec_done[i];
+		*replies += ctx->rec_done[i];
 		rep_arr[i] = ctx->rec_done[i];
 	}
 	if (!rep_arr[ctx->locpid]) {
-		++replies;
+		++(*replies);
 		rep_arr[ctx->locpid] = 1;
 	}
-	while (replies < ctx->children) {
+}
+
+void process_incoming_messages(struct Context *ctx, int8_t *rep_arr, local_id *replies) {
+	while (*replies < ctx->children) {
 		Message msg;
 		while (receive_any(ctx, &msg)) {}
 		switch (msg.s_header.s_type) {
 			case CS_REQUEST:
-				handle_cs_request(ctx, &msg, rep_arr, &replies);
+				handle_cs_request(ctx, &msg, rep_arr, replies);
 			break;
 			case CS_REPLY:
-				handle_cs_reply(ctx, &msg, rep_arr, &replies);
+				handle_cs_reply(ctx, &msg, rep_arr, replies);
 			break;
 			case DONE:
-				handle_done(ctx, &msg, rep_arr, &replies);
+				handle_done(ctx, &msg, rep_arr, replies);
 			break;
 			default:
 				break;
 		}
 	}
+}
+
+int request_cs(const void *self) {
+	struct Context *ctx = (struct Context*)self;
+	Message request;
+
+	if (prepare_cs_request(ctx, &request)) return 1;
+
+	int8_t rep_arr[MAX_PROCESS_ID + 1];
+	local_id replies;
+	initialize_reply_tracking(ctx, rep_arr, &replies);
+
+	process_incoming_messages(ctx, rep_arr, &replies);
+
 	return 0;
 }
 
