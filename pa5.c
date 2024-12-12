@@ -347,88 +347,123 @@ int handle_started_case(struct Context *ctx, timestamp_t *lamport_time, const Me
     return 0;
 }
 
-int main(int argc, char *argv[]) {
-	struct Context ctx;
-	if (argc < 3) {
-		printUsage(argv[0]);
-		return 1;
-	}
-	ctx.children = 0;
-	ctx.mutexl = 0;
-	if (parseArguments(argc, argv, &ctx)) return 1;
-	if (initializePipes(&ctx)) return 2;
-	setupEventLog(&ctx);
-	if (createChildProcesses(&ctx)) return 3;
-	closeUnusedPipesInParent(&ctx);
-	if (ctx.locpid == PARENT_ID) {
-		for (local_id i = 1; i <= ctx.children; ++i) ctx.rec_started[i] = 0;
-		ctx.num_started = 0;
-		for (local_id i = 1; i <= ctx.children; ++i) ctx.rec_done[i] = 0;
-		ctx.num_done = 0;
-		while (ctx.num_started < ctx.children || ctx.num_done < ctx.children) {
-			Message msg;
-			while (receive_any(&ctx, &msg)) {}
-			switch (msg.s_header.s_type) {
-				case STARTED:
-					handle_started(&ctx, &msg);
-					break;
-				case DONE:
-					handle_done2(&ctx, &msg);
-					break;
-				default:
-					break;
-			}
-			fflush(ctx.events);
-		}
-		for (local_id i = 0; i < ctx.children; ++i) wait(NULL);
-	} else {
-		for (local_id i = 1; i <= ctx.children; ++i) {
-            ctx.reqs[i].locpid = 0;
-            ctx.reqs[i].req_time = 0;
-        }
-		++lamport_time;
-		Message started;
-		started.s_header.s_magic = MESSAGE_MAGIC;
-		started.s_header.s_type = STARTED;
-		started.s_header.s_local_time = get_lamport_time();
-		sprintf(started.s_payload, log_started_fmt, get_lamport_time(), ctx.locpid, getpid(), getppid(), 0);
-		started.s_header.s_payload_len = strlen(started.s_payload);
-		puts(started.s_payload);
-		fputs(started.s_payload, ctx.events);
-		if (send_multicast(&ctx, &started)) {
-			fprintf(stderr, "Child %d: failed to send STARTED message\n", ctx.locpid);
-			closePipes(&ctx.pipes);
-			fclose(ctx.events);
-			return 4;
-		}
-		for (local_id i = 1; i <= ctx.children; ++i) ctx.rec_started[i] = (i == ctx.locpid);
-		ctx.num_started = 1;
-		for (local_id i = 1; i <= ctx.children; ++i) ctx.rec_done[i] = 0;
-		ctx.num_done = 0;
-		int8_t active = 1;
-		while (active || ctx.num_done < ctx.children) {
-			Message msg;
-			while (receive_any(&ctx, &msg)) {}
-			switch (msg.s_header.s_type) {
-				case STARTED:
-					if (handle_started_case(&ctx, &lamport_time, &msg, &active)) {
-						return 5;
-					}
-					break;
-				case CS_REQUEST:
-					if (handle_cs_request2(&ctx, &lamport_time, &msg, &active)) {
-						return 8;
-					}
-					break;
-				case DONE:
-					handle_done_case(&ctx, &lamport_time, &msg);
-					break;
-				default: break;
-			}
-			fflush(ctx.events);
-		}
-	}
-	closePipes(&ctx.pipes);
-	fclose(ctx.events);
-	return 0;
+int check_arguments(int argc, char *argv[], struct Context *ctx) {
+    if (argc < 3) {
+        printUsage(argv[0]);
+        return 1;
+    }
+    ctx->children = 0;
+    ctx->mutexl = 0;
+    if (parseArguments(argc, argv, ctx)) return 1;
+    return 0;
 }
+
+int initialize_and_setup(struct Context *ctx) {
+    if (initializePipes(ctx)) return 2;
+    setupEventLog(ctx);
+    if (createChildProcesses(ctx)) return 3;
+    closeUnusedPipesInParent(ctx);
+    return 0;
+}
+
+void reset_started_done_flags(struct Context *ctx) {
+    for (local_id i = 1; i <= ctx->children; ++i) ctx->rec_started[i] = 0;
+    ctx->num_started = 0;
+    for (local_id i = 1; i <= ctx->children; ++i) ctx->rec_done[i] = 0;
+    ctx->num_done = 0;
+}
+
+int handle_parent(struct Context *ctx) {
+    reset_started_done_flags(ctx);
+    while (ctx->num_started < ctx->children || ctx->num_done < ctx->children) {
+        Message msg;
+        while (receive_any(ctx, &msg)) {}
+        switch (msg.s_header.s_type) {
+            case STARTED:
+                handle_started(ctx, &msg);
+                break;
+            case DONE:
+                handle_done2(ctx, &msg);
+                break;
+            default:
+                break;
+        }
+        fflush(ctx->events);
+    }
+    for (local_id i = 0; i < ctx->children; ++i) wait(NULL);
+    return 0;
+}
+
+void reset_child_flags(struct Context *ctx) {
+    for (local_id i = 1; i <= ctx->children; ++i) {
+        ctx->reqs[i].locpid = 0;
+        ctx->reqs[i].req_time = 0;
+    }
+}
+
+int send_started_message(struct Context *ctx) {
+    ++lamport_time;
+    Message started;
+    started.s_header.s_magic = MESSAGE_MAGIC;
+    started.s_header.s_type = STARTED;
+    started.s_header.s_local_time = get_lamport_time();
+    sprintf(started.s_payload, log_started_fmt, get_lamport_time(), ctx->locpid, getpid(), getppid(), 0);
+    started.s_header.s_payload_len = strlen(started.s_payload);
+    puts(started.s_payload);
+    fputs(started.s_payload, ctx->events);
+    if (send_multicast(ctx, &started)) {
+        fprintf(stderr, "Child %d: failed to send STARTED message\n", ctx->locpid);
+        closePipes(&ctx->pipes);
+        fclose(ctx->events);
+        return 4;
+    }
+    return 0;
+}
+
+int handle_child(struct Context *ctx, int8_t *active) {
+    for (local_id i = 1; i <= ctx->children; ++i) ctx->rec_started[i] = (i == ctx->locpid);
+    ctx->num_started = 1;
+    for (local_id i = 1; i <= ctx->children; ++i) ctx->rec_done[i] = 0;
+    ctx->num_done = 0;
+    while (*active || ctx->num_done < ctx->children) {
+        Message msg;
+        while (receive_any(ctx, &msg)) {}
+        switch (msg.s_header.s_type) {
+            case STARTED:
+                if (handle_started_case(ctx, &lamport_time, &msg, active)) {
+                    return 5;
+                }
+                break;
+            case CS_REQUEST:
+                if (handle_cs_request2(ctx, &lamport_time, &msg, active)) {
+                    return 8;
+                }
+                break;
+            case DONE:
+                handle_done_case(ctx, &lamport_time, &msg);
+                break;
+            default: break;
+        }
+        fflush(ctx->events);
+    }
+    return 0;
+}
+
+int main(int argc, char *argv[]) {
+    struct Context ctx;
+    if (check_arguments(argc, argv, &ctx)) return 1;
+    if (initialize_and_setup(&ctx)) return 2;
+
+    if (ctx.locpid == PARENT_ID) {
+        return handle_parent(&ctx);
+    } else {
+        reset_child_flags(&ctx);
+        if (send_started_message(&ctx)) return 4;
+        int8_t active = 1;
+        return handle_child(&ctx, &active);
+    }
+    closePipes(&ctx.pipes);
+    fclose(ctx.events);
+    return 0;
+}
+
