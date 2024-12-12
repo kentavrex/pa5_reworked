@@ -78,15 +78,24 @@ int receive(void *self, local_id from, Message *msg) {
     return result;
 }
 
+int read_message_from_pipe(struct Context *ctx, local_id i, Message *msg) {
+    Descriptor fd = get_receive_pipe(ctx, i);
+    int result = read_full_message(fd, msg);
+    return result;
+}
+
+int process_received_message(struct Context *ctx, Message *msg, local_id i) {
+    ctx->msg_sender = i;
+    return 0;
+}
+
 int receive_any(void *self, Message *msg) {
     struct Context *ctx = (struct Context*)self;
     for (local_id i = 0; i <= ctx->children; ++i) {
         if (i != ctx->locpid) {
-            Descriptor fd = get_receive_pipe(ctx, i);
-            int result = read_full_message(fd, msg);
+            int result = read_message_from_pipe(ctx, i, msg);
             if (result == 0) {
-                ctx->msg_sender = i;
-                return 0;
+                return process_received_message(ctx, msg, i);
             }
         }
     }
