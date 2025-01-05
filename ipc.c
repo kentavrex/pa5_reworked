@@ -26,8 +26,18 @@ int send(void *context, local_id destination, const Message *message) {
 }
 
 int read_message_header(int fd, MessageHeader *header) {
-    return read(fd, header, sizeof(MessageHeader));
+    ssize_t bytes_read = read(fd, header, sizeof(MessageHeader));
+    if (bytes_read <= 0) {
+        if (bytes_read == 0) {
+            perror("End of file reached");
+        } else {
+            perror("Error reading header");
+        }
+        return -1;
+    }
+    return bytes_read;
 }
+
 
 int send_message_to_process(Process *proc, int idx, const Message *message) {
     if (send(proc, idx, message) < 0) {
@@ -79,8 +89,13 @@ int send_multicast(void *context, const Message *message) {
 }
 
 int read_message_header_from_channel(int channel_fd, Message *msg_buffer) {
-    return read_message_header(channel_fd, &msg_buffer->s_header);
+    int result = read_message_header(channel_fd, &msg_buffer->s_header);
+    if (result <= 0) {
+        printf("Failed to read message header from channel. Result: %d\n", result);
+    }
+    return result;
 }
+
 
 int receive(void *self, local_id from, Message *msg) {
     Process process = *(Process *) self;
@@ -124,8 +139,14 @@ int read_message_payload_from_channel(int channel_fd, Message *msg_buffer) {
 }
 
 int is_header_valid(int channel_fd, Message *msg_buffer) {
-    return read_message_header_from_channel(channel_fd, msg_buffer) > 0;
+    int result = read_message_header_from_channel(channel_fd, msg_buffer);
+    if (result <= 0) {
+        printf("Invalid header or error reading from channel.\n");
+        return 0;
+    }
+    return 1;
 }
+
 
 int is_payload_valid(Message *msg_buffer, int channel_fd) {
     return read_message_payload_from_channel(channel_fd, msg_buffer) <= msg_buffer->s_header.s_payload_len;
