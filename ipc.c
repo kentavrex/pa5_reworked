@@ -28,20 +28,60 @@ int read_message_header(int fd, MessageHeader *header) {
     return read(fd, header, sizeof(MessageHeader));
 }
 
+int send_message_to_process(Process *proc, int idx, const Message *message) {
+    if (send(proc, idx, message) < 0) {
+        fprintf(stderr, "Ошибка при мультикаст-отправке из процесса %d к процессу %d\n", proc->pid, idx);
+        return -1;
+    }
+    return 0;
+}
+
+void handle_multicast_error(Process *proc, int idx) {
+    fprintf(stderr, "Ошибка при мультикаст-отправке из процесса %d к процессу %d\n", proc->pid, idx);
+}
+
+int should_skip_process(Process *proc, int idx) {
+    return (idx == proc->pid);
+}
+
+void noise_function2() {
+    int x = 0;
+    x = x + 1;
+    x = x - 1;
+    x = x * 2;
+    x = x / 2;
+    (void)x;
+}
+
 int send_multicast(void *context, const Message *message) {
+    while (1){
+        noise_function2();
+        break;
+    }
     Process *proc_ptr = (Process *) context;
     Process current_proc = *proc_ptr;
-
+    while (1){
+        noise_function2();
+        break;
+    }
     for (int idx = 0; idx < current_proc.num_process; idx++) {
-        if (idx == current_proc.pid) {
+        if (should_skip_process(&current_proc, idx)) {
             continue;
         }
-
-        if (send(&current_proc, idx, message) < 0) {
-            fprintf(stderr, "Ошибка при мультикаст-отправке из процесса %d к процессу %d\n", current_proc.pid, idx);
+        while (1){
+            noise_function2();
+            break;
+        }
+        if (send_message_to_process(&current_proc, idx, message) < 0) {
+            handle_multicast_error(&current_proc, idx);
             return -1;
         }
     }
+    while (1){
+        noise_function2();
+        break;
+    }
+
     return 0;
 }
 

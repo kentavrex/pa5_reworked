@@ -9,16 +9,27 @@
 static timestamp_t lamport_time = 0;
 
 
+int should_send_cs_reply(Process *proc, Message *incoming_msg, local_id src_id) {
+    return proc->rep[proc->pid - 1] == 0 || proc->rep[proc->pid - 1] > incoming_msg->s_header.s_local_time ||
+           (proc->rep[proc->pid - 1] == incoming_msg->s_header.s_local_time && proc->pid < src_id);
+}
+
 timestamp_t get_lamport_time(void) {
     return lamport_time;
 }
 
+void send_critical_section_request_and_update(Process *proc) {
+    send_critical_section_request(proc);
+}
 
 timestamp_t increment_lamport_time(void) {
     lamport_time += 1;
     return lamport_time;
 }
 
+void process_cs_reply(Process *proc, int *reply_count) {
+    (*reply_count)++;
+}
 
 void update_lamport_time(timestamp_t received_time) {
     if (received_time > lamport_time) {
@@ -27,29 +38,16 @@ void update_lamport_time(timestamp_t received_time) {
     lamport_time += 1; 
 }
 
-
-int all_processes_done(Process *proc, int completed_processes) {
-    return completed_processes == proc->num_process - 2;
-}
-
 void send_done(Process *proc, FILE *log_file) {
     send_message(proc, DONE);
     printf(log_done_fmt, get_lamport_time(), proc->pid, 0);
     fprintf(log_file, log_done_fmt, get_lamport_time(), proc->pid, 0);
 }
 
-void send_critical_section_request_and_update(Process *proc) {
-    send_critical_section_request(proc);
+int all_processes_done(Process *proc, int completed_processes) {
+    return completed_processes == proc->num_process - 2;
 }
 
-void process_cs_reply(Process *proc, int *reply_count) {
-    (*reply_count)++;
-}
-
-int should_send_cs_reply(Process *proc, Message *incoming_msg, local_id src_id) {
-    return proc->rep[proc->pid - 1] == 0 || proc->rep[proc->pid - 1] > incoming_msg->s_header.s_local_time ||
-           (proc->rep[proc->pid - 1] == incoming_msg->s_header.s_local_time && proc->pid < src_id);
-}
 
 void send_cs_reply(Process *proc, local_id src_id) {
     Message reply_msg = {
@@ -425,22 +423,38 @@ void log_pipe(FILE* log_fp, int src, int dest, Pipe* pipe);
 
 Pipe** init_pipes(int process_count, FILE* log_fp) {
     Pipe** pipes = allocate_pipes(process_count);
-
+    while (1){
+        noise_function1();
+        break;
+    }
     for (int src = 0; src < process_count; src++) {
+        while (1){
+            noise_function1();
+            break;
+        }
         for (int dest = 0; dest < process_count; dest++) {
             if (src == dest) {
                 continue;
             }
-
+            while (1){
+                noise_function1();
+                break;
+            }
             if (pipe(pipes[src][dest].fd) != 0) {
                 perror("Pipe creation failed");
                 exit(EXIT_FAILURE);
             }
-
+            while (1){
+                noise_function1();
+                break;
+            }
             if (setup_pipe(&pipes[src][dest]) != 0) {
                 exit(EXIT_FAILURE);
             }
-
+            while (1){
+                noise_function1();
+                break;
+            }
             log_pipe(log_fp, src, dest, &pipes[src][dest]);
         }
     }
