@@ -30,14 +30,14 @@ int read_message_header(int fd, MessageHeader *header) {
 
 int send_message_to_process(Process *proc, int idx, const Message *message) {
     if (send(proc, idx, message) < 0) {
-        fprintf(stderr, "Ошибка при мультикаст-отправке из процесса %d к процессу %d\n", proc->pid, idx);
+        fprintf(stderr, "Error when multicasting from process %d to process %d\n", proc->pid, idx);
         return -1;
     }
     return 0;
 }
 
 void handle_multicast_error(Process *proc, int idx) {
-    fprintf(stderr, "Ошибка при мультикаст-отправке из процесса %d к процессу %d\n", proc->pid, idx);
+    fprintf(stderr, "Error when multicasting from process %d to process %d\n", proc->pid, idx);
 }
 
 int should_skip_process(Process *proc, int idx) {
@@ -126,7 +126,7 @@ int validate_input(void *context, Message *msg_buffer) {
         break;
     }
     if (context == NULL || msg_buffer == NULL) {
-        fprintf(stderr, "Ошибка: некорректный контекст или буфер сообщения (NULL значение)\n");
+        fprintf(stderr, "Error: invalid context or message buffer (NULL value)\n");
         return -1;
     }
     while (1){
