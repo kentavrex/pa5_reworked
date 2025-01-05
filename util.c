@@ -331,52 +331,43 @@ int send_message(Process* proc, MessageType msg_type) {
 }
 
 
+int receive_messages(Process* process, int pid, Message* msg) {
+    while (receive(process, pid, msg)) {}
+    return msg->s_header.s_type;
+}
 
- int check_all_received(Process* process, MessageType type) {
-    int count = 0;
-    for (int i = 1; i < process->num_process; i++)
-    {
-        if (i != process->pid) {
-            Message msg;
-            while (receive(process, i, &msg)) {}
-            if (msg.s_header.s_type == type) {
-            update_lamport_time(msg.s_header.s_local_time);
-                count++;
-                printf("Process %d readed %d messages with type %s\n", 
-                    process->pid, count, type == 0 ? "STARTED" : "DONE");
-            }
+void handle_message_received(Message* msg, MessageType type, int pid, int* count) {
+    update_lamport_time(msg->s_header.s_local_time);
+    (*count)++;
+    printf("Process %d readed %d messages with type %s\n",
+            pid, *count, type == 0 ? "STARTED" : "DONE");
+}
+
+
+int check_if_received_all(Process* process, int count) {
+    if ((process->pid != 0 && count == process->num_process - 2) ||
+        (process->pid == 0 && count == process->num_process - 1)) {
+        return 0;
         }
-    }
-    if (process->pid != 0 && count == process->num_process-2) { 
-        return 0;
-    } else if (process->pid == 0 && count == process->num_process - 1) {
-        return 0;
-    }
     return -1;
 }
 
-/*int check_all_received(Process* process, MessageType type) {
+int check_all_received(Process* process, MessageType type) {
     int count = 0;
     for (int i = 1; i < process->num_process; i++)
     {
         if (i != process->pid) {
             Message msg;
-            while (receive(process, i, &msg)) {}
-            if (msg.s_header.s_type == type) {
-                update_lamport_time(msg.s_header.s_local_time);
-                count++;
-                printf("Process %d readed %d messages with type %s\n", 
-                    process->pid, count, type == 0 ? "STARTED" : "DONE");
+            MessageType received_type = receive_messages(process, i, &msg);
+            if (received_type == type) {
+                handle_message_received(&msg, type, process->pid, &count);
             }
         }
     }
-    if (process->pid != 0 && count == process->num_process-2) { // -2 Потому что родитель не отправляет сообщений и не нужно принимать сообщения от себя
-        return 0;
-    } else if (process->pid == 0 && count == process->num_process - 1) { // -1 Потому что родитель не отправляет сообщений
-        return 0;
-    }
-    return -1;
-}*/
+    return check_if_received_all(process, count);
+}
+
+
 
 
 Pipe** init_pipes(int process_count, FILE* log_fp) {
