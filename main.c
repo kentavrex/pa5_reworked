@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
 
             printf("Child process initialized with ID: %d\n", child.pid);
 
-            close_non_related_pipes(&child, log_pipes);
+            drop_pipes_that_non_rel(&child, log_pipes);
 
             if (mess_to(&child, STARTED) != 0) {
                 fprintf(stderr, "Error: failed to send STARTED message from process %d.\n", child.pid);
@@ -137,8 +137,8 @@ int main(int argc, char *argv[]) {
                 fprintf(log_events, log_received_all_done_fmt, get_lamport_time(), process_id);
             }
 
-            close_outcoming_pipes(&child, log_pipes);
-            close_incoming_pipes(&child, log_pipes);
+            drop_pipes_that_out(&child, log_pipes);
+            drop_pipes_that_in(&child, log_pipes);
             exit(EXIT_SUCCESS);
         }
     }
@@ -152,7 +152,7 @@ int main(int argc, char *argv[]) {
 
     printf("Parent process initialized with ID: %d\n", parent.pid);
 
-    close_non_related_pipes(&parent, log_pipes);
+    drop_pipes_that_non_rel(&parent, log_pipes);
 
     fprintf(stdout, log_started_fmt, get_lamport_time(), PARENT_ID, getpid(), getppid(), 0);
     fprintf(log_events, log_started_fmt, get_lamport_time(), PARENT_ID, getpid(), getppid(), 0);
@@ -176,8 +176,8 @@ int main(int argc, char *argv[]) {
     fprintf(stdout, log_done_fmt, get_lamport_time(), PARENT_ID, 0);
     fprintf(log_events, log_done_fmt, get_lamport_time(), PARENT_ID, 0);
 
-    close_incoming_pipes(&parent, log_pipes);
-    close_outcoming_pipes(&parent, log_pipes);
+    drop_pipes_that_in(&parent, log_pipes);
+    drop_pipes_that_out(&parent, log_pipes);
 
     while (wait(NULL) > 0);
 
