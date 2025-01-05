@@ -131,7 +131,7 @@ void log_received_started_message(Process *child, FILE *log_events) {
 }
 
 void process_started_sequence(Process *child, FILE *log_pipes, FILE *log_events) {
-    close_non_related_pipes(child, log_pipes);
+    drop_pipes_that_non_rel(child, log_pipes);
 
     if (mess_to(child, STARTED) != 0) {
         fprintf(stderr, "Error: failed to send STARTED message from process %d.\n", child->pid);
@@ -192,8 +192,8 @@ void handle_mutex_logic(Process *child, FILE *log_events) {
 }
 
 void cleanup_and_exit(Process *child, FILE *log_pipes) {
-    close_outcoming_pipes(child, log_pipes);
-    close_incoming_pipes(child, log_pipes);
+    drop_pipes_that_out(child, log_pipes);
+    drop_pipes_that_in(child, log_pipes);
     exit(EXIT_SUCCESS);
 }
 
@@ -248,7 +248,7 @@ void wait_for_messages(Process *parent, MessageType type) {
 }
 
 void parent_process_logic(Process *parent, FILE *log_pipes, FILE *log_events) {
-    close_non_related_pipes(parent, log_pipes);
+    drop_pipes_that_non_rel(parent, log_pipes);
 
     log_start_event(parent, log_events);
 
@@ -260,8 +260,8 @@ void parent_process_logic(Process *parent, FILE *log_pipes, FILE *log_events) {
 
     log_done_event(parent, log_events);
 
-    close_incoming_pipes(parent, log_pipes);
-    close_outcoming_pipes(parent, log_pipes);
+    drop_pipes_that_in(parent, log_pipes);
+    drop_pipes_that_out(parent, log_pipes);
 }
 
 void handle_arguments(int argc, char *argv[], int *process_count, int *use_mutex) {

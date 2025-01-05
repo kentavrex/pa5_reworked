@@ -41,7 +41,7 @@ static void update_request_timestamp(Process* proc, timestamp_t time) {
     proc->rep[proc->pid - 1] = time;
 }
 
-int send_critical_section_request(const void* context) {
+int report_request_to_enter_crit_sec(const void* context) {
     Process* proc = (Process*) context;
     timestamp_t current_time = lmprd_time_upgrade();
     Message request_message = create_message(current_time, CS_REQUEST);
@@ -60,7 +60,7 @@ static void reset_peer_timestamps(Process* proc) {
     }
 }
 
-int send_critical_section_release(const void* context) {
+int report_release_to_enter_crit_sec(const void* context) {
     Process* proc = (Process*) context;
     timestamp_t current_time = lmprd_time_upgrade();
     Message release_message = create_message(current_time, CS_REPLY);

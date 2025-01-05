@@ -13,9 +13,8 @@
 #include "base_vars.h"
 
 
+int report_request_to_enter_crit_sec(const void* context);
 
-int send_critical_section_request(const void* context);
-
-int send_critical_section_release(const void* context);
+int report_release_to_enter_crit_sec(const void* context);
 
 #endif

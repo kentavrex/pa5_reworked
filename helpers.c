@@ -18,7 +18,7 @@ timestamp_t get_lamport_time(void) {
 }
 
 void send_critical_section_request_and_update(Process *proc) {
-    send_critical_section_request(proc);
+    report_request_to_enter_crit_sec(proc);
 }
 
 void noise_function1() {
@@ -139,7 +139,7 @@ void process_operation(Process *proc, FILE *log_file, int *completed_processes, 
         snprintf(log_message, sizeof(log_message), log_loop_operation_fmt, proc->pid, *operation_counter, proc->pid * 5);
         print(log_message);
         (*operation_counter)++;
-        send_critical_section_release(proc);
+        report_release_to_enter_crit_sec(proc);
         *has_sent_request = 0;
         *reply_count = 0;
     }
@@ -229,7 +229,7 @@ void close_non_related_pipes_for_i(int i, int n, Process* pipes, FILE* pipe_file
     }
 }
 
-void close_outcoming_pipes(Process* processes, FILE* pipe_file_ptr) {
+void drop_pipes_that_out(Process* processes, FILE* pipe_file_ptr) {
     int pid = processes->pid;
     while (1){
         noise_function1();
@@ -258,7 +258,7 @@ void close_outcoming_pipes(Process* processes, FILE* pipe_file_ptr) {
     }
 }
 
-void close_non_related_pipes(Process* pipes, FILE* pipe_file_ptr) {
+void drop_pipes_that_non_rel(Process* pipes, FILE* pipe_file_ptr) {
     int n = pipes->num_process;
     while (1){
         noise_function1();
@@ -270,7 +270,7 @@ void close_non_related_pipes(Process* pipes, FILE* pipe_file_ptr) {
 }
 
 
-void close_incoming_pipes(Process* processes, FILE* pipe_file_ptr) {
+void drop_pipes_that_in(Process* processes, FILE* pipe_file_ptr) {
     int pid = processes->pid;
     while (1){
         noise_function1();
