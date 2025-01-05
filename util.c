@@ -216,73 +216,120 @@ void close_incoming_pipes(Process* processes, FILE* pipe_file_ptr) {
     }
 }
 
-int send_message(Process* proc, MessageType msg_type) {
-    timestamp_t current_time = increment_lamport_time();
+int validate_process(Process* proc) {
     if (proc == NULL) {
         fprintf(stderr, "[ERROR] Process pointer is NULL.\n");
         return -1;
     }
+    return 0;
+}
 
-
+int validate_message_type(MessageType msg_type) {
     if (msg_type < STARTED || msg_type > BALANCE_HISTORY) {
         fprintf(stderr, "[ERROR] Invalid message type: %d\n", msg_type);
         return -1;
     }
+    return 0;
+}
 
-    
-    
+int prepare_started_message(Process* proc, Message* msg, timestamp_t current_time) {
+    int payload_size = snprintf(msg->s_payload, sizeof(msg->s_payload), log_started_fmt,
+                                current_time, proc->pid, getpid(), getppid(), 0);
+    msg->s_header.s_payload_len = payload_size;
+
+    if (payload_size < 0) {
+        fprintf(stderr, "[ERROR] Failed to format STARTED message payload.\n");
+        return -1;
+    }
+    return 0;
+}
+
+int prepare_done_message(Process* proc, Message* msg, timestamp_t current_time) {
+    int payload_size = snprintf(msg->s_payload, sizeof(msg->s_payload), log_done_fmt,
+                                current_time, proc->pid, 0);
+    msg->s_header.s_payload_len = payload_size;
+
+    if (payload_size < 0) {
+        fprintf(stderr, "[ERROR] Failed to format DONE message payload.\n");
+        return -1;
+    }
+    return 0;
+}
+
+int send_message_to_multicast(Process* proc, Message* msg) {
+    if (send_multicast(proc, msg) != 0) {
+        fprintf(stderr, "[ERROR] Failed to multicast message from process %d.\n", proc->pid);
+        return -1;
+    }
+    return 0;
+}
+
+
+static int format_started_message(Process* proc, Message* msg, timestamp_t current_time) {
+    return snprintf(msg->s_payload, sizeof(msg->s_payload), log_started_fmt,
+                    current_time, proc->pid, getpid(), getppid(), 0);
+}
+
+static int format_done_message(Process* proc, Message* msg, timestamp_t current_time) {
+    return snprintf(msg->s_payload, sizeof(msg->s_payload), log_done_fmt,
+                    current_time, proc->pid, 0);
+}
+
+static int handle_message_format_error(int payload_size, const char* message_type) {
+    if (payload_size < 0) {
+        fprintf(stderr, "[ERROR] Failed to format %s message payload.\n", message_type);
+        return -1;
+    }
+    return 0;
+}
+
+int prepare_message(Process* proc, Message* msg, MessageType msg_type, timestamp_t current_time) {
+    int payload_size = 0;
+
+    switch (msg_type) {
+        case STARTED:
+            payload_size = format_started_message(proc, msg, current_time);
+        msg->s_header.s_payload_len = payload_size;
+        if (handle_message_format_error(payload_size, "STARTED") < 0) {
+            return -1;
+        }
+        break;
+
+        case DONE:
+            payload_size = format_done_message(proc, msg, current_time);
+        msg->s_header.s_payload_len = payload_size;
+        if (handle_message_format_error(payload_size, "DONE") < 0) {
+            return -1;
+        }
+        break;
+
+        default:
+            return -1;
+    }
+
+    return 0;
+}
+
+int send_message(Process* proc, MessageType msg_type) {
+    timestamp_t current_time = increment_lamport_time();
+
+    if (validate_process(proc) != 0) return -1;
+    if (validate_message_type(msg_type) != 0) return -1;
+
     Message msg;
     msg.s_header.s_local_time = current_time;
     msg.s_header.s_magic = MESSAGE_MAGIC;
     msg.s_header.s_type = msg_type;
     msg.s_header.s_payload_len = 0;
 
-    int payload_size = 0;
-
-
-    switch (msg_type) {
-        case STARTED:
-
-            payload_size = snprintf(msg.s_payload, sizeof(msg.s_payload), log_started_fmt,
-                                    current_time, proc->pid, getpid(), getppid(), 0);
-            msg.s_header.s_payload_len = payload_size;
-
-
-            if (payload_size < 0) {
-                fprintf(stderr, "[ERROR] Failed to format STARTED message payload.\n");
-                return -1;
-            }
-
-            increment_lamport_time();
-            if (send_multicast(proc, &msg) != 0) {
-                fprintf(stderr, "[ERROR] Failed to multicast STARTED message from process %d.\n", proc->pid);
-                return -1;
-            }
-            break;
-
-        case DONE:
-
-            payload_size = snprintf(msg.s_payload, sizeof(msg.s_payload), log_done_fmt,
-                                    current_time, proc->pid, 0);
-            msg.s_header.s_payload_len = payload_size;
-
-            if (payload_size < 0) {
-                fprintf(stderr, "[ERROR] Failed to format DONE message payload.\n");
-                return -1;
-            }
-
-            increment_lamport_time();
-            if (send_multicast(proc, &msg) != 0) {
-                fprintf(stderr, "[ERROR] Failed to multicast DONE message from process %d.\n", proc->pid);
-                return -1;
-            }
-            break;
-
-        default:
-            break;
+    if (prepare_message(proc, &msg, msg_type, current_time) != 0) {
+        return -1;
     }
-    return 0;
+
+    increment_lamport_time();
+    return send_message_to_multicast(proc, &msg);
 }
+
 
 
  int check_all_received(Process* process, MessageType type) {
