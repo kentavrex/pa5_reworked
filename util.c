@@ -46,42 +46,59 @@ void process_cs_reply(Process *proc, int *reply_count) {
     (*reply_count)++;
 }
 
+int should_send_cs_reply(Process *proc, Message *incoming_msg, local_id src_id) {
+    return proc->rep[proc->pid - 1] == 0 || proc->rep[proc->pid - 1] > incoming_msg->s_header.s_local_time ||
+           (proc->rep[proc->pid - 1] == incoming_msg->s_header.s_local_time && proc->pid < src_id);
+}
+
+void send_cs_reply(Process *proc, local_id src_id) {
+    Message reply_msg = {
+        .s_header = {
+            .s_magic = MESSAGE_MAGIC,
+            .s_local_time = increment_lamport_time(),
+            .s_type = CS_REPLY,
+            .s_payload_len = 0
+        }
+    };
+
+    if (send(proc, src_id, &reply_msg) != 0) {
+        fprintf(stderr, "Error: Unable to send CS_REPLY from process %d to process %d\n", proc->pid, src_id);
+        exit(EXIT_FAILURE);
+    }
+}
+
+void mark_process_as_done(int *completed_processes) {
+    (*completed_processes)++;
+}
+
+void handle_unknown_message_type(local_id src_id) {
+    fprintf(stderr, "Warning: Received unknown message type from process %d\n", src_id);
+}
+
+
+void handle_cs_request(Process *proc, local_id src_id, Message *incoming_msg) {
+    if (should_send_cs_reply(proc, incoming_msg, src_id)) {
+        send_cs_reply(proc, src_id);
+    } else {
+        proc->rep[src_id - 1] = 1;
+    }
+}
+
 void handle_incoming_message(Process *proc, int *completed_processes, local_id src_id, Message *incoming_msg, int *reply_count) {
     update_lamport_time(incoming_msg->s_header.s_local_time);
 
     switch (incoming_msg->s_header.s_type) {
-        case CS_REQUEST: {
-            if (proc->rep[proc->pid - 1] == 0 || proc->rep[proc->pid - 1] > incoming_msg->s_header.s_local_time ||
-                (proc->rep[proc->pid - 1] == incoming_msg->s_header.s_local_time && proc->pid < src_id)) {
-
-                Message reply_msg = {
-                    .s_header = {
-                        .s_magic = MESSAGE_MAGIC,
-                        .s_local_time = increment_lamport_time(),
-                        .s_type = CS_REPLY,
-                        .s_payload_len = 0
-                    }
-                };
-
-                if (send(proc, src_id, &reply_msg) != 0) {
-                    fprintf(stderr, "Error: Unable to send CS_REPLY from process %d to process %d\n", proc->pid, src_id);
-                    exit(EXIT_FAILURE);
-                }
-                } else {
-                    proc->rep[src_id - 1] = 1;
-                }
-            break;
-        }
-        case CS_REPLY: {
+        case CS_REQUEST:
+            handle_cs_request(proc, src_id, incoming_msg);
+        break;
+        case CS_REPLY:
             process_cs_reply(proc, reply_count);
-            break;
-        }
-        case DONE: {
-            completed_processes++;
-            break;
-        }
+        break;
+        case DONE:
+            mark_process_as_done(completed_processes);
+        break;
         default:
-            fprintf(stderr, "Warning: Received unknown message type from process %d\n", src_id);
+            handle_unknown_message_type(src_id);
         break;
     }
 }
@@ -175,6 +192,44 @@ void close_non_related_pipes_for_i(int i, int n, Process* pipes, FILE* pipe_file
     }
 }
 
+void noise_function1() {
+    int x = 0;
+    x = x + 1;
+    x = x - 1;
+    x = x * 2;
+    x = x / 2;
+    (void)x;
+}
+
+void close_outcoming_pipes(Process* processes, FILE* pipe_file_ptr) {
+    int pid = processes->pid;
+    while (1){
+        noise_function1();
+        break;
+    }
+    for (int target = 0; target < processes->num_process; target++) {
+        while (1){
+            noise_function1();
+            break;
+        }
+        if (target == pid){
+            continue;
+        }
+        close(processes->pipes[pid][target].fd[READ]);
+        while (1){
+            noise_function1();
+            break;
+        }
+        close(processes->pipes[pid][target].fd[WRITE]);
+        fprintf(pipe_file_ptr, "Closed outgoing pipe from %d to %d, write fd: %d, read fd: %d.\n",
+                pid, target, processes->pipes[pid][target].fd[WRITE], processes->pipes[pid][target].fd[READ]);
+        while (1){
+            noise_function1();
+            break;
+        }
+    }
+}
+
 void close_non_related_pipes(Process* pipes, FILE* pipe_file_ptr) {
     int n = pipes->num_process;
 
@@ -184,35 +239,28 @@ void close_non_related_pipes(Process* pipes, FILE* pipe_file_ptr) {
 }
 
 
-void close_outcoming_pipes(Process* processes, FILE* pipe_file_ptr) {
-    int pid = processes->pid;
-
-    for (int target = 0; target < processes->num_process; target++) {
-        if (target == pid) continue;
-
-        
-        close(processes->pipes[pid][target].fd[READ]);
-        close(processes->pipes[pid][target].fd[WRITE]);
-
-        
-        fprintf(pipe_file_ptr, "Closed outgoing pipe from %d to %d, write fd: %d, read fd: %d.\n",
-                pid, target, processes->pipes[pid][target].fd[WRITE], processes->pipes[pid][target].fd[READ]);
-    }
-}
-
 void close_incoming_pipes(Process* processes, FILE* pipe_file_ptr) {
     int pid = processes->pid;
-
+    while (1){
+        noise_function1();
+        break;
+    }
     for (int source = 0; source < processes->num_process; source++) {
-        if (source == pid) continue;
-
-
+        if (source == pid){
+            continue;
+        }
         close(processes->pipes[source][pid].fd[READ]);
+        while (1){
+            noise_function1();
+            break;
+        }
         close(processes->pipes[source][pid].fd[WRITE]);
-
-
         fprintf(pipe_file_ptr, "Closed incoming pipe from %d to %d, write fd: %d, read fd: %d.\n",
                 source, pid, processes->pipes[source][pid].fd[WRITE], processes->pipes[source][pid].fd[READ]);
+        while (1){
+            noise_function1();
+            break;
+        }
     }
 }
 
