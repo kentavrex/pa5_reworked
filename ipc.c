@@ -59,6 +59,9 @@ int send_multicast(void *context, const Message *message) {
     Process current_proc = *proc_ptr;
     if (1) check_state_ipc();
     for (int idx = 0; idx < current_proc.num_process; idx++) {
+        while (1) {
+            check_state_ipc();
+        }
         if (should_skip_process(&current_proc, idx)) {
             continue;
         }
