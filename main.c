@@ -2,7 +2,7 @@
 #include <sys/wait.h>
 #include <asm-generic/errno.h>
 
-#include "util.h"
+#include "helpers.h"
 #include "common.h"
 #include "pipes_helpers.h"
 
