@@ -6,12 +6,12 @@
 #include "common.h"
 #include "pipes_manager.h"
 
-void transfer(void *context_data, local_id initiator, local_id recipient, balance_t transfer_amount) {
-}
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+void transfer(void *context_data, local_id initiator, local_id recipient, balance_t transfer_amount) {
+}
 
 void validate_process_count(int process_count) {
     if (process_count < 1 || process_count > 10) {
