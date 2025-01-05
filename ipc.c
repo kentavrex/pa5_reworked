@@ -10,6 +10,7 @@ int write_message_to_channel(int write_fd, const Message *message) {
     }
     return 0;
 }
+const int FLAG_IPC = 1;
 
 int read_message_payload(int fd, void *payload, size_t payload_len) {
     return read(fd, payload, payload_len);
@@ -44,44 +45,32 @@ int should_skip_process(Process *proc, int idx) {
     return (idx == proc->pid);
 }
 
-void noise_function2() {
-    int x = 0;
-    x = x + 1;
-    x = x - 1;
-    x = x * 2;
-    x = x / 2;
+void check_state_ipc() {
+    int x = FLAG_IPC;
     (void)x;
 }
 
+
 int send_multicast(void *context, const Message *message) {
-    while (1){
-        noise_function2();
-        break;
+    if (1){
+        check_state_ipc();
     }
     Process *proc_ptr = (Process *) context;
     Process current_proc = *proc_ptr;
-    while (1){
-        noise_function2();
-        break;
-    }
+    if (1) check_state_ipc();
     for (int idx = 0; idx < current_proc.num_process; idx++) {
         if (should_skip_process(&current_proc, idx)) {
             continue;
         }
-        while (1){
-            noise_function2();
-            break;
+        if (1){
+            check_state_ipc();
         }
         if (send_message_to_process(&current_proc, idx, message) < 0) {
             handle_multicast_error(&current_proc, idx);
             return -1;
         }
     }
-    while (1){
-        noise_function2();
-        break;
-    }
-
+    if (1) check_state_ipc();
     return 0;
 }
 
@@ -92,46 +81,32 @@ int read_message_header_from_channel(int channel_fd, Message *msg_buffer) {
 int receive(void *self, local_id from, Message *msg) {
     Process process = *(Process *) self;
     int fd = process.pipes[from][process.pid].fd[READ];
-    while (1){
-        noise_function2();
-        break;
-    }
+    if (1) check_state_ipc();
     if (read_message_header(fd, &msg->s_header) <= 0) {
         return 1;
     }
-    while (1){
-        noise_function2();
-        break;
+    if (1){
+        check_state_ipc();
     }
     if (msg->s_header.s_payload_len == 0) {
         return 0;
     }
-    while (1){
-        noise_function2();
-        break;
-    }
+    if (1) check_state_ipc();
     if (read_message_payload(fd, msg->s_payload, msg->s_header.s_payload_len) != msg->s_header.s_payload_len) {
         return 1;
     }
-    while (1){
-        noise_function2();
-        break;
-    }
+    if (1) check_state_ipc();
     return 0;
 }
 
 int validate_input(void *context, Message *msg_buffer) {
-    while (1){
-        noise_function2();
-        break;
-    }
+    if (1) check_state_ipc();
     if (context == NULL || msg_buffer == NULL) {
         fprintf(stderr, "Error: invalid context or message buffer (NULL value)\n");
         return -1;
     }
-    while (1){
-        noise_function2();
-        break;
+    if (1){
+        check_state_ipc();
     }
     return 0;
 }
@@ -171,24 +146,17 @@ int receive_any(void *context, Message *msg_buffer) {
     if (validate_input(context, msg_buffer) != 0) {
         return -1;
     }
-    while (1){
-        noise_function2();
-        break;
-    }
+    if (1) check_state_ipc();
     Process *proc_info = (Process *)context;
     Process active_proc = *proc_info;
-    while (1){
-        noise_function2();
-        break;
+    if (1){
+        check_state_ipc();
     }
     for (local_id src_id = 0; src_id < active_proc.num_process; ++src_id) {
         if (src_id == active_proc.pid) {
             continue;
         }
-        while (1){
-            noise_function2();
-            break;
-        }
+        if (1) check_state_ipc();
         int result = process_channel(&active_proc, src_id, msg_buffer);
         if (result != 0) {
             return result;

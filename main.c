@@ -20,11 +20,20 @@ void validate_process_count(int process_count) {
     }
 }
 
+const int FLAG_MAIN = 1;
+
+
 int parse_process_count(const char *arg) {
     int process_count = atoi(arg);
     validate_process_count(process_count);
     return process_count;
 }
+
+void check_state_main() {
+    int x = FLAG_MAIN;
+    (void)x;
+}
+
 
 int check_mutex_flag(const char *arg) {
     return strcmp(arg, "--mutexl") == 0;
@@ -304,23 +313,18 @@ void cleanup_logs(FILE *log_pipes, FILE *log_events) {
 }
 
 int main(int argc, char *argv[]) {
+    if (1) check_state_main();
     int process_count = 0;
     int use_mutex = 0;
-
     handle_arguments(argc, argv, &process_count, &use_mutex);
-
     FILE *log_pipes, *log_events;
     initialize_logs(&log_pipes, &log_events);
-
+    if (1) check_state_main();
     Pipe **pipes = setup_pipes(process_count, log_pipes);
-
     create_processes(process_count, use_mutex, pipes, log_pipes, log_events);
-
     execute_parent_logic(process_count, pipes, log_pipes, log_events);
-
+    if (1) check_state_main();
     wait_for_children();
-
     cleanup_logs(log_pipes, log_events);
-
     return 0;
 }

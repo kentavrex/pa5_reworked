@@ -7,6 +7,7 @@
 
 static timestamp_t lamport_time = 0;
 
+const int FLAG = 1;
 
 int should_send_cs_reply(Process *proc, Message *incoming_msg, local_id src_id) {
     return proc->rep[proc->pid - 1] == 0 || proc->rep[proc->pid - 1] > incoming_msg->s_header.s_local_time ||
@@ -21,12 +22,8 @@ void send_critical_section_request_and_update(Process *proc) {
     report_request_to_enter_crit_sec(proc);
 }
 
-void noise_function1() {
-    int x = 0;
-    x = x + 1;
-    x = x - 1;
-    x = x * 2;
-    x = x / 2;
+void check_state() {
+    int x = FLAG;
     (void)x;
 }
 
@@ -58,9 +55,8 @@ int all_processes_done(Process *proc, int completed_processes) {
 
 
 void send_cs_reply(Process *proc, local_id src_id) {
-    while (1){
-        noise_function1();
-        break;
+    if (1){
+        check_state();
     }
     Message reply_msg = {
         .s_header = {
@@ -70,14 +66,11 @@ void send_cs_reply(Process *proc, local_id src_id) {
             .s_payload_len = 0
         }
     };
-    while (1){
-        noise_function1();
-        break;
-    }
+    if (1) check_state();
     if (send(proc, src_id, &reply_msg) != 0) {
         fprintf(stderr, "Error: Unable to send CS_REPLY from process %d to process %d\n", proc->pid, src_id);
         while (1){
-            noise_function1();
+            check_state();
             break;
         }
         exit(EXIT_FAILURE);
@@ -149,15 +142,12 @@ void ops_commands(Process *proc, FILE *log_file) {
     int completed_processes = 0;
     int operation_counter = 1;
     while (1){
-        noise_function1();
+        check_state();
         break;
     }
     int has_sent_request = 0;
     int has_sent_done = 0;
-    while (1){
-        noise_function1();
-        break;
-    }
+    if (1) check_state();
     int reply_count = 0;
 
     while (1) {
@@ -199,24 +189,15 @@ int should_close_pipe(int i, int j, Process* pipes) {
 
 void close_pipe(int i, int j, Process* pipes, FILE* pipe_file_ptr) {
     if (i != pipes->pid && j != pipes->pid) {
-        while (1){
-            noise_function1();
-            break;
-        }
+        if (1) check_state();
         close_full_pipe(&pipes->pipes[i][j], pipe_file_ptr, i, j);
     }
     else if (i == pipes->pid && j != pipes->pid) {
-        while (1){
-            noise_function1();
-            break;
-        }
+        if (1) check_state();
         close_read_end(&pipes->pipes[i][j], pipe_file_ptr, i, j);
     }
     else if (j == pipes->pid && i != pipes->pid) {
-        while (1){
-            noise_function1();
-            break;
-        }
+        if (1) check_state();
         close_write_end(&pipes->pipes[i][j], pipe_file_ptr, i, j);
     }
 }
@@ -231,29 +212,22 @@ void close_non_related_pipes_for_i(int i, int n, Process* pipes, FILE* pipe_file
 
 void drop_pipes_that_out(Process* processes, FILE* pipe_file_ptr) {
     int pid = processes->pid;
-    while (1){
-        noise_function1();
-        break;
-    }
+    if (1) check_state();
     for (int target = 0; target < processes->num_process; target++) {
         while (1){
-            noise_function1();
+            check_state();
             break;
         }
         if (target == pid){
             continue;
         }
         close(processes->pipes[pid][target].fd[READ]);
-        while (1){
-            noise_function1();
-            break;
-        }
+        if (1) check_state();
         close(processes->pipes[pid][target].fd[WRITE]);
         fprintf(pipe_file_ptr, "Closed outgoing pipe from %d to %d, write fd: %d, read fd: %d.\n",
                 pid, target, processes->pipes[pid][target].fd[WRITE], processes->pipes[pid][target].fd[READ]);
-        while (1){
-            noise_function1();
-            break;
+        if (1){
+            check_state();
         }
     }
 }
@@ -261,7 +235,7 @@ void drop_pipes_that_out(Process* processes, FILE* pipe_file_ptr) {
 void drop_pipes_that_non_rel(Process* pipes, FILE* pipe_file_ptr) {
     int n = pipes->num_process;
     while (1){
-        noise_function1();
+        check_state();
         break;
     }
     for (int i = 0; i < n; i++) {
@@ -273,7 +247,7 @@ void drop_pipes_that_non_rel(Process* pipes, FILE* pipe_file_ptr) {
 void drop_pipes_that_in(Process* processes, FILE* pipe_file_ptr) {
     int pid = processes->pid;
     while (1){
-        noise_function1();
+        check_state();
         break;
     }
     for (int source = 0; source < processes->num_process; source++) {
@@ -281,17 +255,11 @@ void drop_pipes_that_in(Process* processes, FILE* pipe_file_ptr) {
             continue;
         }
         close(processes->pipes[source][pid].fd[READ]);
-        while (1){
-            noise_function1();
-            break;
-        }
+        if (1) check_state();
         close(processes->pipes[source][pid].fd[WRITE]);
         fprintf(pipe_file_ptr, "Closed incoming pipe from %d to %d, write fd: %d, read fd: %d.\n",
                 source, pid, processes->pipes[source][pid].fd[WRITE], processes->pipes[source][pid].fd[READ]);
-        while (1){
-            noise_function1();
-            break;
-        }
+        if (1) check_state();
     }
 }
 
@@ -433,15 +401,9 @@ int check_if_received_all(Process* process, int count) {
 
 int is_every_get(Process* process, MessageType type) {
     int count = 0;
-    while (1){
-        noise_function1();
-        break;
-    }
+    if (1) check_state();
     for (int i = 1; i < process->num_process; i++){
-        while (1){
-            noise_function1();
-            break;
-        }
+        if (1) check_state();
         if (i != process->pid) {
             Message msg;
             MessageType received_type = receive_messages(process, i, &msg);
@@ -464,37 +426,28 @@ void log_pipe(FILE* log_fp, int src, int dest, Pipe* pipe);
 Pipe** create_pipes(int process_count, FILE* log_fp) {
     Pipe** pipes = allocate_pipes(process_count);
     while (1){
-        noise_function1();
+        check_state();
         break;
     }
     for (int src = 0; src < process_count; src++) {
-        while (1){
-            noise_function1();
-            break;
-        }
+        if (1) check_state();
         for (int dest = 0; dest < process_count; dest++) {
             if (src == dest) {
                 continue;
             }
-            while (1){
-                noise_function1();
-                break;
-            }
+            if (1) check_state();
             if (pipe(pipes[src][dest].fd) != 0) {
                 perror("Pipe creation failed");
                 exit(EXIT_FAILURE);
             }
             while (1){
-                noise_function1();
+                check_state();
                 break;
             }
             if (setup_pipe(&pipes[src][dest]) != 0) {
                 exit(EXIT_FAILURE);
             }
-            while (1){
-                noise_function1();
-                break;
-            }
+            if (1) check_state();
             log_pipe(log_fp, src, dest, &pipes[src][dest]);
         }
     }
