@@ -25,17 +25,37 @@ int send(void *context, local_id destination, const Message *message) {
     return write_message_to_channel(write_fd, message);
 }
 
-int read_message_header(int fd, MessageHeader *header) {
-    ssize_t bytes_read = read(fd, header, sizeof(MessageHeader));
-    if (bytes_read <= 0) {
-        if (bytes_read == 0) {
-            perror("End of file reached");
-        } else {
-            perror("Error reading header");
-        }
+#include <sys/select.h>
+#include <unistd.h>
+
+int wait_for_readability(int fd) {
+    fd_set readfds;
+    struct timeval timeout;
+
+    FD_ZERO(&readfds);
+    FD_SET(fd, &readfds);
+
+    timeout.tv_sec = 5;  // Тайм-аут на 5 секунд
+    timeout.tv_usec = 0;
+
+    int ret = select(fd + 1, &readfds, NULL, NULL, &timeout);
+    if (ret == -1) {
+        perror("Error with select");
         return -1;
+    } else if (ret == 0) {
+        // Тайм-аут
+        return 0;
     }
-    return bytes_read;
+
+    return FD_ISSET(fd, &readfds) ? 1 : 0;
+}
+
+ssize_t read_message_header(int fd, MessageHeader *header) {
+    if (wait_for_readability(fd) <= 0) {
+        return 0;
+    }
+
+    return read(fd, header, sizeof(MessageHeader));
 }
 
 
