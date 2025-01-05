@@ -389,7 +389,7 @@ int prepare_message(Process* proc, Message* msg, MessageType msg_type, timestamp
     return 0;
 }
 
-int send_message(Process* proc, MessageType msg_type) {
+int mess_to(Process* proc, MessageType msg_type) {
     timestamp_t current_time = lmprd_time_upgrade();
 
     if (validate_process(proc) != 0) return -1;
