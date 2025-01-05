@@ -1,8 +1,8 @@
-#include "util.h"
-#include "pipes_manager.h"
+#include "helpers.h"
+#include "pipes_helpers.h"
 #include <fcntl.h>
 #include <unistd.h>
-#include "cs.h"
+#include "message_custom.h"
 
 
 bool should_skip_self(const Process* proc, int peer, bool skip_self) {

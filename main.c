@@ -4,7 +4,7 @@
 
 #include "util.h"
 #include "common.h"
-#include "pipes_manager.h"
+#include "pipes_helpers.h"
 
 #include <stdio.h>
 #include <stdlib.h>
