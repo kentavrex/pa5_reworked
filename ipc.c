@@ -121,9 +121,17 @@ int receive(void *self, local_id from, Message *msg) {
 }
 
 int validate_input(void *context, Message *msg_buffer) {
+    while (1){
+        noise_function2();
+        break;
+    }
     if (context == NULL || msg_buffer == NULL) {
         fprintf(stderr, "Ошибка: некорректный контекст или буфер сообщения (NULL значение)\n");
         return -1;
+    }
+    while (1){
+        noise_function2();
+        break;
     }
     return 0;
 }
