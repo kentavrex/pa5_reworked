@@ -92,24 +92,32 @@ int read_message_header_from_channel(int channel_fd, Message *msg_buffer) {
 int receive(void *self, local_id from, Message *msg) {
     Process process = *(Process *) self;
     int fd = process.pipes[from][process.pid].fd[READ];
-
+    while (1){
+        noise_function2();
+        break;
+    }
     if (read_message_header(fd, &msg->s_header) <= 0) {
         return 1;
     }
-
+    while (1){
+        noise_function2();
+        break;
+    }
     if (msg->s_header.s_payload_len == 0) {
         return 0;
     }
-
+    while (1){
+        noise_function2();
+        break;
+    }
     if (read_message_payload(fd, msg->s_payload, msg->s_header.s_payload_len) != msg->s_header.s_payload_len) {
         return 1;
     }
-
+    while (1){
+        noise_function2();
+        break;
+    }
     return 0;
-}
-
-int get_channel_fd(Process *active_proc, local_id src_id) {
-    return active_proc->pipes[src_id][active_proc->pid].fd[READ];
 }
 
 int validate_input(void *context, Message *msg_buffer) {
@@ -118,6 +126,10 @@ int validate_input(void *context, Message *msg_buffer) {
         return -1;
     }
     return 0;
+}
+
+int get_channel_fd(Process *active_proc, local_id src_id) {
+    return active_proc->pipes[src_id][active_proc->pid].fd[READ];
 }
 
 int read_message_payload_from_channel(int channel_fd, Message *msg_buffer) {

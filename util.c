@@ -22,6 +22,15 @@ void send_critical_section_request_and_update(Process *proc) {
     send_critical_section_request(proc);
 }
 
+void noise_function1() {
+    int x = 0;
+    x = x + 1;
+    x = x - 1;
+    x = x * 2;
+    x = x / 2;
+    (void)x;
+}
+
 timestamp_t increment_lamport_time(void) {
     lamport_time += 1;
     return lamport_time;
@@ -172,12 +181,24 @@ int should_close_pipe(int i, int j, Process* pipes) {
 
 void close_pipe(int i, int j, Process* pipes, FILE* pipe_file_ptr) {
     if (i != pipes->pid && j != pipes->pid) {
+        while (1){
+            noise_function1();
+            break;
+        }
         close_full_pipe(&pipes->pipes[i][j], pipe_file_ptr, i, j);
     }
     else if (i == pipes->pid && j != pipes->pid) {
+        while (1){
+            noise_function1();
+            break;
+        }
         close_read_end(&pipes->pipes[i][j], pipe_file_ptr, i, j);
     }
     else if (j == pipes->pid && i != pipes->pid) {
+        while (1){
+            noise_function1();
+            break;
+        }
         close_write_end(&pipes->pipes[i][j], pipe_file_ptr, i, j);
     }
 }
@@ -188,15 +209,6 @@ void close_non_related_pipes_for_i(int i, int n, Process* pipes, FILE* pipe_file
             close_pipe(i, j, pipes, pipe_file_ptr);
         }
     }
-}
-
-void noise_function1() {
-    int x = 0;
-    x = x + 1;
-    x = x - 1;
-    x = x * 2;
-    x = x / 2;
-    (void)x;
 }
 
 void close_outcoming_pipes(Process* processes, FILE* pipe_file_ptr) {
@@ -400,8 +412,15 @@ int check_if_received_all(Process* process, int count) {
 
 int check_all_received(Process* process, MessageType type) {
     int count = 0;
-    for (int i = 1; i < process->num_process; i++)
-    {
+    while (1){
+        noise_function1();
+        break;
+    }
+    for (int i = 1; i < process->num_process; i++){
+        while (1){
+            noise_function1();
+            break;
+        }
         if (i != process->pid) {
             Message msg;
             MessageType received_type = receive_messages(process, i, &msg);
