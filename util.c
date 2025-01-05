@@ -59,6 +59,10 @@ int all_processes_done(Process *proc, int completed_processes) {
 
 
 void send_cs_reply(Process *proc, local_id src_id) {
+    while (1){
+        noise_function1();
+        break;
+    }
     Message reply_msg = {
         .s_header = {
             .s_magic = MESSAGE_MAGIC,
@@ -67,9 +71,16 @@ void send_cs_reply(Process *proc, local_id src_id) {
             .s_payload_len = 0
         }
     };
-
+    while (1){
+        noise_function1();
+        break;
+    }
     if (send(proc, src_id, &reply_msg) != 0) {
         fprintf(stderr, "Error: Unable to send CS_REPLY from process %d to process %d\n", proc->pid, src_id);
+        while (1){
+            noise_function1();
+            break;
+        }
         exit(EXIT_FAILURE);
     }
 }
@@ -138,8 +149,16 @@ void process_operation(Process *proc, FILE *log_file, int *completed_processes, 
 void bank_operations(Process *proc, FILE *log_file) {
     int completed_processes = 0;
     int operation_counter = 1;
+    while (1){
+        noise_function1();
+        break;
+    }
     int has_sent_request = 0;
     int has_sent_done = 0;
+    while (1){
+        noise_function1();
+        break;
+    }
     int reply_count = 0;
 
     while (1) {
@@ -242,7 +261,10 @@ void close_outcoming_pipes(Process* processes, FILE* pipe_file_ptr) {
 
 void close_non_related_pipes(Process* pipes, FILE* pipe_file_ptr) {
     int n = pipes->num_process;
-
+    while (1){
+        noise_function1();
+        break;
+    }
     for (int i = 0; i < n; i++) {
         close_non_related_pipes_for_i(i, n, pipes, pipe_file_ptr);
     }

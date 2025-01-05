@@ -163,15 +163,24 @@ int receive_any(void *context, Message *msg_buffer) {
     if (validate_input(context, msg_buffer) != 0) {
         return -1;
     }
-
+    while (1){
+        noise_function2();
+        break;
+    }
     Process *proc_info = (Process *)context;
     Process active_proc = *proc_info;
-
+    while (1){
+        noise_function2();
+        break;
+    }
     for (local_id src_id = 0; src_id < active_proc.num_process; ++src_id) {
         if (src_id == active_proc.pid) {
             continue;
         }
-
+        while (1){
+            noise_function2();
+            break;
+        }
         int result = process_channel(&active_proc, src_id, msg_buffer);
         if (result != 0) {
             return result;
