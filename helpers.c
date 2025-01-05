@@ -30,7 +30,7 @@ void noise_function1() {
     (void)x;
 }
 
-timestamp_t increment_lamport_time(void) {
+timestamp_t lmprd_time_upgrade(void) {
     lamport_time += 1;
     return lamport_time;
 }
@@ -39,7 +39,7 @@ void process_cs_reply(Process *proc, int *reply_count) {
     (*reply_count)++;
 }
 
-void update_lamport_time(timestamp_t received_time) {
+void lmprd_time_update(timestamp_t received_time) {
     if (received_time > lamport_time) {
         lamport_time = received_time;
     }
@@ -47,7 +47,7 @@ void update_lamport_time(timestamp_t received_time) {
 }
 
 void send_done(Process *proc, FILE *log_file) {
-    send_message(proc, DONE);
+    mess_to(proc, DONE);
     printf(log_done_fmt, get_lamport_time(), proc->pid, 0);
     fprintf(log_file, log_done_fmt, get_lamport_time(), proc->pid, 0);
 }
@@ -65,7 +65,7 @@ void send_cs_reply(Process *proc, local_id src_id) {
     Message reply_msg = {
         .s_header = {
             .s_magic = MESSAGE_MAGIC,
-            .s_local_time = increment_lamport_time(),
+            .s_local_time = lmprd_time_upgrade(),
             .s_type = CS_REPLY,
             .s_payload_len = 0
         }
@@ -102,7 +102,7 @@ void handle_cs_request(Process *proc, local_id src_id, Message *incoming_msg) {
 }
 
 void handle_incoming_message(Process *proc, int *completed_processes, local_id src_id, Message *incoming_msg, int *reply_count) {
-    update_lamport_time(incoming_msg->s_header.s_local_time);
+    lmprd_time_update(incoming_msg->s_header.s_local_time);
 
     switch (incoming_msg->s_header.s_type) {
         case CS_REQUEST:
@@ -145,7 +145,7 @@ void process_operation(Process *proc, FILE *log_file, int *completed_processes, 
     }
 }
 
-void bank_operations(Process *proc, FILE *log_file) {
+void ops_commands(Process *proc, FILE *log_file) {
     int completed_processes = 0;
     int operation_counter = 1;
     while (1){
@@ -390,7 +390,7 @@ int prepare_message(Process* proc, Message* msg, MessageType msg_type, timestamp
 }
 
 int send_message(Process* proc, MessageType msg_type) {
-    timestamp_t current_time = increment_lamport_time();
+    timestamp_t current_time = lmprd_time_upgrade();
 
     if (validate_process(proc) != 0) return -1;
     if (validate_message_type(msg_type) != 0) return -1;
@@ -405,7 +405,7 @@ int send_message(Process* proc, MessageType msg_type) {
         return -1;
     }
 
-    increment_lamport_time();
+    lmprd_time_upgrade();
     return send_message_to_multicast(proc, &msg);
 }
 
@@ -416,7 +416,7 @@ int receive_messages(Process* process, int pid, Message* msg) {
 }
 
 void handle_message_received(Message* msg, MessageType type, int pid, int* count) {
-    update_lamport_time(msg->s_header.s_local_time);
+    lmprd_time_update(msg->s_header.s_local_time);
     (*count)++;
     printf("Process %d readed %d messages with type %s\n",
             pid, *count, type == 0 ? "STARTED" : "DONE");
@@ -431,7 +431,7 @@ int check_if_received_all(Process* process, int count) {
     return -1;
 }
 
-int check_all_received(Process* process, MessageType type) {
+int is_every_get(Process* process, MessageType type) {
     int count = 0;
     while (1){
         noise_function1();
@@ -454,14 +454,14 @@ int check_all_received(Process* process, MessageType type) {
 }
 
 
-Pipe** init_pipes(int process_count, FILE* log_fp);
+Pipe** create_pipes(int process_count, FILE* log_fp);
 
 Pipe** allocate_pipes(int process_count);
 int setup_pipe(Pipe* pipe);
 int set_nonblocking(int fd);
 void log_pipe(FILE* log_fp, int src, int dest, Pipe* pipe);
 
-Pipe** init_pipes(int process_count, FILE* log_fp) {
+Pipe** create_pipes(int process_count, FILE* log_fp) {
     Pipe** pipes = allocate_pipes(process_count);
     while (1){
         noise_function1();

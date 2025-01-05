@@ -133,14 +133,14 @@ void log_received_started_message(Process *child, FILE *log_events) {
 void process_started_sequence(Process *child, FILE *log_pipes, FILE *log_events) {
     close_non_related_pipes(child, log_pipes);
 
-    if (send_message(child, STARTED) != 0) {
+    if (mess_to(child, STARTED) != 0) {
         fprintf(stderr, "Error: failed to send STARTED message from process %d.\n", child->pid);
         exit(EXIT_FAILURE);
     }
 
     log_started_message(child, log_events);
 
-    if (check_all_received(child, STARTED) != 0) {
+    if (is_every_get(child, STARTED) != 0) {
         fprintf(stderr, "Error: process %d failed to receive all STARTED messages.\n", child->pid);
         exit(EXIT_FAILURE);
     }
@@ -159,14 +159,14 @@ void log_received_done_message(Process *child, FILE *log_events) {
 }
 
 void process_done_sequence(Process *child, FILE *log_events) {
-    if (send_message(child, DONE) != 0) {
+    if (mess_to(child, DONE) != 0) {
         fprintf(stderr, "Error: failed to send DONE message from process %d.\n", child->pid);
         exit(EXIT_FAILURE);
     }
 
     log_done_message(child, log_events);
 
-    if (check_all_received(child, DONE) != 0) {
+    if (is_every_get(child, DONE) != 0) {
         fprintf(stderr, "Error: process %d failed to receive all DONE messages.\n", child->pid);
         exit(EXIT_FAILURE);
     }
@@ -185,7 +185,7 @@ void perform_operations(Process *child, FILE *log_events) {
 
 void handle_mutex_logic(Process *child, FILE *log_events) {
     if (child->use_mutex) {
-        bank_operations(child, log_events);
+        ops_commands(child, log_events);
     } else {
         perform_operations(child, log_events);
     }
@@ -240,7 +240,7 @@ void log_done_event(Process *parent, FILE *log_events) {
 }
 
 void wait_for_messages(Process *parent, MessageType type) {
-    if (check_all_received(parent, type) != 0) {
+    if (is_every_get(parent, type) != 0) {
         fprintf(stderr, "Error: parent process failed to receive all %s messages.\n",
                 type == STARTED ? "STARTED" : "DONE");
         exit(EXIT_FAILURE);
@@ -273,7 +273,7 @@ void initialize_logs(FILE **log_pipes, FILE **log_events) {
 }
 
 Pipe **setup_pipes(int process_count, FILE *log_pipes) {
-    Pipe **pipes = init_pipes(process_count, log_pipes);
+    Pipe **pipes = create_pipes(process_count, log_pipes);
     if (pipes == NULL) {
         fprintf(stderr, "Error: failed to initialize pipes.\n");
         exit(EXIT_FAILURE);
