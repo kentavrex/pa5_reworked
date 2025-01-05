@@ -21,7 +21,7 @@ static void send_message_to_peers(const Process* proc, const Message* message, b
         if (skip_self && peer == proc->pid) {
             continue;
         }
-        if (send(proc, peer, message) == -1) {
+        if (send((void*)proc, peer, message) == -1) {
             fprintf(stderr, "Error: Process %d failed to send message to process %d\n", proc->pid, peer);
             exit(EXIT_FAILURE);
         }
