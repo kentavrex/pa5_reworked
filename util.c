@@ -368,54 +368,90 @@ int check_all_received(Process* process, MessageType type) {
 }
 
 
+Pipe** init_pipes(int process_count, FILE* log_fp);
 
+Pipe** allocate_pipes(int process_count);
+int setup_pipe(Pipe* pipe);
+int set_nonblocking(int fd);
+void log_pipe(FILE* log_fp, int src, int dest, Pipe* pipe);
 
 Pipe** init_pipes(int process_count, FILE* log_fp) {
-
-    Pipe** pipes = (Pipe**) malloc(process_count * sizeof(Pipe*));
-
-    for (int i = 0; i < process_count; i++) {
-        pipes[i] = (Pipe*) malloc(process_count * sizeof(Pipe));
-    }
-
+    Pipe** pipes = allocate_pipes(process_count);
 
     for (int src = 0; src < process_count; src++) {
         for (int dest = 0; dest < process_count; dest++) {
             if (src == dest) {
-                continue; 
+                continue;
             }
-
 
             if (pipe(pipes[src][dest].fd) != 0) {
                 perror("Pipe creation failed");
                 exit(EXIT_FAILURE);
             }
 
-
-            int flags_read = fcntl(pipes[src][dest].fd[READ], F_GETFL);
-            int flags_write = fcntl(pipes[src][dest].fd[WRITE], F_GETFL);
-
-            if (flags_read == -1 || flags_write == -1) {
-                perror("Error retrieving flags for pipe");
+            if (setup_pipe(&pipes[src][dest]) != 0) {
                 exit(EXIT_FAILURE);
             }
 
-
-            if (fcntl(pipes[src][dest].fd[READ], F_SETFL, flags_read | O_NONBLOCK) == -1) {
-                perror("Failed to set non-blocking mode for read end of pipe");
-                exit(EXIT_FAILURE);
-            }
-
-            if (fcntl(pipes[src][dest].fd[WRITE], F_SETFL, flags_write | O_NONBLOCK) == -1) {
-                perror("Failed to set non-blocking mode for write end of pipe");
-                exit(EXIT_FAILURE);
-            }
-
-
-            fprintf(log_fp, "Pipe initialized: from process %d to process %d (write: %d, read: %d)\n", 
-                    src, dest, pipes[src][dest].fd[WRITE], pipes[src][dest].fd[READ]);
+            log_pipe(log_fp, src, dest, &pipes[src][dest]);
         }
     }
 
     return pipes;
+}
+
+Pipe** allocate_pipes(int process_count) {
+    Pipe** pipes = (Pipe**) malloc(process_count * sizeof(Pipe*));
+
+    if (pipes == NULL) {
+        perror("Failed to allocate memory for pipes");
+        exit(EXIT_FAILURE);
+    }
+
+    for (int i = 0; i < process_count; i++) {
+        pipes[i] = (Pipe*) malloc(process_count * sizeof(Pipe));
+
+        if (pipes[i] == NULL) {
+            perror("Failed to allocate memory for pipes row");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    return pipes;
+}
+
+int setup_pipe(Pipe* pipe) {
+    int flags_read = fcntl(pipe->fd[0], F_GETFL);
+    int flags_write = fcntl(pipe->fd[1], F_GETFL);
+
+    if (flags_read == -1 || flags_write == -1) {
+        perror("Error retrieving flags for pipe");
+        return -1;
+    }
+
+    if (set_nonblocking(pipe->fd[0]) == -1 || set_nonblocking(pipe->fd[1]) == -1) {
+        return -1;
+    }
+
+    return 0;
+}
+
+int set_nonblocking(int fd) {
+    int flags = fcntl(fd, F_GETFL);
+    if (flags == -1) {
+        perror("Error getting flags for file descriptor");
+        return -1;
+    }
+
+    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+        perror("Failed to set non-blocking mode");
+        return -1;
+    }
+
+    return 0;
+}
+
+void log_pipe(FILE* log_fp, int src, int dest, Pipe* pipe) {
+    fprintf(log_fp, "Pipe initialized: from process %d to process %d (write: %d, read: %d)\n",
+            src, dest, pipe->fd[1], pipe->fd[0]);
 }
