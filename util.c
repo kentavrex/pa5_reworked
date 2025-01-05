@@ -151,8 +151,9 @@ void close_full_pipe(Pipe* pipe, FILE* pipe_file_ptr, int i, int j) {
 
 
 int should_close_pipe(int i, int j, Process* pipes) {
-    return i != j && (i != pipes->pid && j != pipes->pid || i == pipes->pid && j != pipes->pid || j == pipes->pid && i != pipes->pid);
+    return i != j && ((i != pipes->pid && j != pipes->pid) || (i == pipes->pid && j != pipes->pid) || (j == pipes->pid && i != pipes->pid));
 }
+
 
 void close_pipe(int i, int j, Process* pipes, FILE* pipe_file_ptr) {
     if (i != pipes->pid && j != pipes->pid) {
