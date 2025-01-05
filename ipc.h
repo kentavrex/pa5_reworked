@@ -66,7 +66,7 @@ typedef struct {
  *
  * @return 0 on success, any non-zero value on error
  */
-int send(void * self, local_id dst, const Message * msg);
+int send(void * self, int8_t dst, const Message * msg);
 
 //------------------------------------------------------------------------------
 
@@ -94,7 +94,7 @@ int send_multicast(void * self, const Message * msg);
  *
  * @return 0 on success, any non-zero value on error
  */
-int receive(void * self, local_id from, Message * msg);
+int receive(void * self, int8_t from, Message * msg);
 
 //------------------------------------------------------------------------------
 

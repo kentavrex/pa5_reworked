@@ -1,4 +1,4 @@
-all: pa5
+all: pa4
 
 env:
 	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:./lib64
@@ -8,3 +8,6 @@ build:
 
 run:
 	./pa_program -p 3
+
+clear:
+	rm pa_program && clear && ls -l

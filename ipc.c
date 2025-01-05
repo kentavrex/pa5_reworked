@@ -1,103 +1,103 @@
+#include "util.h"
+#include "const.h"
+#include <errno.h>
 #include <unistd.h>
-#include "context.h"
-#include "ipc.h"
-#include "pipes.h"
 
-int write_message(Descriptor fd, const char *data, int64_t len) {
-    return write(fd, data, len);
-}
 
-int get_message_length(const Message *msg) {
-    return sizeof(MessageHeader) + msg->s_header.s_payload_len;
-}
+int send(void *context, local_id destination, const Message *message) {
 
-Descriptor get_send_pipe(struct Context *ctx, local_id dst) {
-    return accessPipe(&ctx->pipes, (struct PipeDescriptor){ctx->locpid, dst, WRITING});
-}
+    Process *proc_ptr = (Process *) context;
+    Process current_process = *proc_ptr;
+    
 
-int send_message(Descriptor fd, const Message *msg, int64_t msg_len) {
-    return write_message(fd, (const char*)msg, msg_len);
-}
+    int write_fd = current_process.pipes[current_process.pid][destination].fd[WRITE];
+    //printf("Процесс %d записывает в файловый дескриптор для записи: %d, для чтения: %d\n",
+           //current_process.pid, write_fd, current_process.pipes[current_process.pid][destination].fd[READ]);
+    
 
-int send(void *self, local_id dst, const Message *msg) {
-    struct Context *ctx = (struct Context*)self;
-    int64_t msg_len = get_message_length(msg);
-    Descriptor fd = get_send_pipe(ctx, dst);
-    if (send_message(fd, msg, msg_len) < msg_len) return 1;
+    ssize_t bytes_written = write(write_fd, &(message->s_header), sizeof(MessageHeader) + message->s_header.s_payload_len);
+    if (bytes_written < 0) {
+        fprintf(stderr, "Ошибка при записи из процесса %d в процесс %d\n", current_process.pid, destination);
+        return -1;
+    }
+    
+    //printf("Записано сообщение длиной: %d\n", message->s_header.s_payload_len);
     return 0;
 }
+int send_multicast(void *context, const Message *message) {
 
-Descriptor get_multicast_send_pipe(struct Context *ctx, local_id dst) {
-    return accessPipe(&ctx->pipes, (struct PipeDescriptor){ctx->locpid, dst, WRITING});
-}
+    Process *proc_ptr = (Process *) context;
+    Process current_proc = *proc_ptr;
+    
 
-int send_message_to_pipe(Descriptor fd, const Message *msg, int64_t msg_len) {
-    return send_message(fd, msg, msg_len);
-}
+    for (int idx = 0; idx < current_proc.num_process; idx++) {
+        if (idx == current_proc.pid) {
+            continue;
+        }
+        
 
-int send_multicast(void *self, const Message *msg) {
-    struct Context *ctx = (struct Context*)self;
-    int64_t msg_len = get_message_length(msg);
-    for (local_id i = 0; i <= ctx->children; ++i) {
-        if (i != ctx->locpid) {
-            Descriptor fd = get_multicast_send_pipe(ctx, i);
-            if (send_message_to_pipe(fd, msg, msg_len) < msg_len) return 1;
+        if (send(&current_proc, idx, message) < 0) {
+            fprintf(stderr, "Ошибка при мультикаст-отправке из процесса %d к процессу %d\n", current_proc.pid, idx);
+            return -1;
         }
     }
     return 0;
 }
 
-int read_message_header(Descriptor fd, Message *msg) {
-    return read(fd, msg, sizeof(MessageHeader));
-}
 
-int is_valid_message(const Message *msg) {
-    return msg->s_header.s_magic == MESSAGE_MAGIC;
-}
-
-int read_message_payload(Descriptor fd, Message *msg) {
-    return read(fd, msg->s_payload, msg->s_header.s_payload_len);
-}
-
-Descriptor get_receive_pipe(struct Context *ctx, local_id from) {
-    return accessPipe(&ctx->pipes, (struct PipeDescriptor){from, ctx->locpid, READING});
-}
-
-int read_full_message(Descriptor fd, Message *msg) {
-    if ((int64_t)read_message_header(fd, msg) < (int64_t)sizeof(MessageHeader)) return 1;
-    if (!is_valid_message(msg)) return 2;
-    if ((int64_t)read_message_payload(fd, msg) < (int64_t)(msg->s_header.s_payload_len)) return 3;
+int receive(void * self, local_id from, Message * msg) {
+    Process process = *(Process *) self;
+    // size_t read(int fd, void *buf, size_t count);
+    int fd =  process.pipes[from][process.pid].fd[READ];
+    if (read(fd, &msg->s_header, sizeof(MessageHeader)) <= 0) {
+        //printf("Error on read header\n");
+        return 1;
+    }
+    if (msg->s_header.s_payload_len == 0) {
+        //printf("Readed message with len %d\n", msg->s_header.s_payload_len);
+        return 0;
+    }
+    if (read(fd, msg->s_payload, msg->s_header.s_payload_len) != msg->s_header.s_payload_len) {
+        // printf("Error on read payload\n");
+        return 1;
+    }
     return 0;
 }
 
-int receive(void *self, local_id from, Message *msg) {
-    struct Context *ctx = (struct Context*)self;
-    Descriptor fd = get_receive_pipe(ctx, from);
-    int result = read_full_message(fd, msg);
-    if (result == 0) ctx->msg_sender = from;
-    return result;
-}
+int receive_any(void *context, Message *msg_buffer) {
 
-int process_received_message(struct Context *ctx, Message *msg, local_id i) {
-    ctx->msg_sender = i;
-    return 0;
-}
+    if (context == NULL || msg_buffer == NULL) {
+        fprintf(stderr, "Ошибка: некорректный контекст или буфер сообщения (NULL значение)\n");
+        return -1;
+    }
 
-int read_message_from_pipe(struct Context *ctx, local_id i, Message *msg) {
-    Descriptor fd = get_receive_pipe(ctx, i);
-    int result = read_full_message(fd, msg);
-    return result;
-}
 
-int receive_any(void *self, Message *msg) {
-    struct Context *ctx = (struct Context*)self;
-    for (local_id i = 0; i <= ctx->children; ++i) {
-        if (i != ctx->locpid) {
-            int result = read_message_from_pipe(ctx, i, msg);
-            if (result == 0) {
-                return process_received_message(ctx, msg, i);
+    Process *proc_info = (Process *)context;
+    Process active_proc = *proc_info;
+        for (local_id src_id = 0; src_id < active_proc.num_process; ++src_id) {
+
+            if (src_id == active_proc.pid) {
+                continue;
+            }
+
+
+            int channel_fd = active_proc.pipes[src_id][active_proc.pid].fd[READ];
+
+            if (read(channel_fd, &msg_buffer->s_header, sizeof(MessageHeader))<=0) {
+                //printf("Процесс %d: нет данных от процесса %d, продолжаем ожидание...\n", 
+                       //active_proc.pid, src_id);
+                continue;
+            }
+            else {
+                if (read(channel_fd, msg_buffer->s_payload, msg_buffer->s_header.s_payload_len)<=msg_buffer->s_header.s_payload_len) {
+                return 1;
+            }
+            else {
+            return 0;
             }
         }
-    }
+      }
+
     return 1;
 }
+
