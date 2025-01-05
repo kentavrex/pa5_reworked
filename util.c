@@ -133,36 +133,55 @@ void bank_operations(Process *proc, FILE *log_file) {
 }
 
 
+void close_read_end(Pipe* pipe, FILE* pipe_file_ptr, int i, int j) {
+    close(pipe->fd[READ]);
+    fprintf(pipe_file_ptr, "Closed read end from %d to %d, read fd: %d.\n", i, j, pipe->fd[READ]);
+}
+
+void close_write_end(Pipe* pipe, FILE* pipe_file_ptr, int i, int j) {
+    close(pipe->fd[WRITE]);
+    fprintf(pipe_file_ptr, "Closed write end from %d to %d, write fd: %d.\n", i, j, pipe->fd[WRITE]);
+}
+
+void close_full_pipe(Pipe* pipe, FILE* pipe_file_ptr, int i, int j) {
+    close(pipe->fd[READ]);
+    close(pipe->fd[WRITE]);
+    fprintf(pipe_file_ptr, "Closed full pipe from %d to %d, write fd: %d, read fd: %d.\n", i, j, pipe->fd[WRITE], pipe->fd[READ]);
+}
+
+
+int should_close_pipe(int i, int j, Process* pipes) {
+    return i != j && (i != pipes->pid && j != pipes->pid || i == pipes->pid && j != pipes->pid || j == pipes->pid && i != pipes->pid);
+}
+
+void close_pipe(int i, int j, Process* pipes, FILE* pipe_file_ptr) {
+    if (i != pipes->pid && j != pipes->pid) {
+        close_full_pipe(&pipes->pipes[i][j], pipe_file_ptr, i, j);
+    }
+    else if (i == pipes->pid && j != pipes->pid) {
+        close_read_end(&pipes->pipes[i][j], pipe_file_ptr, i, j);
+    }
+    else if (j == pipes->pid && i != pipes->pid) {
+        close_write_end(&pipes->pipes[i][j], pipe_file_ptr, i, j);
+    }
+}
+
+void close_non_related_pipes_for_i(int i, int n, Process* pipes, FILE* pipe_file_ptr) {
+    for (int j = 0; j < n; j++) {
+        if (should_close_pipe(i, j, pipes)) {
+            close_pipe(i, j, pipes, pipe_file_ptr);
+        }
+    }
+}
+
 void close_non_related_pipes(Process* pipes, FILE* pipe_file_ptr) {
     int n = pipes->num_process;
 
     for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-
-            if (i != j) {
-                if (i != pipes->pid && j != pipes->pid) {
-
-                    close(pipes->pipes[i][j].fd[READ]);
-                    close(pipes->pipes[i][j].fd[WRITE]);
-                    fprintf(pipe_file_ptr, "Closed full pipe from %d to %d, write fd: %d, read fd: %d.\n",
-                            i, j, pipes->pipes[i][j].fd[WRITE], pipes->pipes[i][j].fd[READ]);
-                } 
-
-                else if (i == pipes->pid && j != pipes->pid) {
-                    close(pipes->pipes[i][j].fd[READ]);
-                    fprintf(pipe_file_ptr, "Closed read end from %d to %d, read fd: %d.\n",
-                            i, j, pipes->pipes[i][j].fd[READ]);
-                }
-
-                else if (j == pipes->pid && i != pipes->pid) {
-                    close(pipes->pipes[i][j].fd[WRITE]);
-                    fprintf(pipe_file_ptr, "Closed write end from %d to %d, write fd: %d.\n",
-                            i, j, pipes->pipes[i][j].fd[WRITE]);
-                }
-            }
-        }
+        close_non_related_pipes_for_i(i, n, pipes, pipe_file_ptr);
     }
 }
+
 
 void close_outcoming_pipes(Process* processes, FILE* pipe_file_ptr) {
     int pid = processes->pid;
