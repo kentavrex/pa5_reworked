@@ -1,4 +1,4 @@
-all: pa4
+all: pa5
 
 env:
 	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:./lib64
