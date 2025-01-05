@@ -6,6 +6,9 @@
 #include "common.h"
 #include "pipes_manager.h"
 
+void transfer(void *context_data, local_id initiator, local_id recipient, balance_t transfer_amount) {
+}
+
 void parse_arguments(int argc, char *argv[], int *process_count, int *use_mutex) {
     if (argc == 3 && strcmp(argv[1], "-p") == 0) {
         *process_count = atoi(argv[2]);
