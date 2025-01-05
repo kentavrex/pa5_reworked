@@ -26,8 +26,7 @@ typedef struct {
     Pipe** pipes;
     int8_t pid;
     int use_mutex;
-    Query* queue;
-    int queue_size;
+    int* rep;
 } Process;
 
 #endif
