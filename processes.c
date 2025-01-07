@@ -585,7 +585,7 @@ int handle_parent_process(struct process* processes) {
     return parent_work(processes);
 }
 
-int do_fork(struct process* processes, bool is_critical) {
+int fork_processes(struct process* processes, bool is_critical) {
     for (int i = 0; i < processes->X; i++) {
         pid_t pid = perform_fork(i, processes);
         if (pid == 0) {
@@ -593,6 +593,14 @@ int do_fork(struct process* processes, bool is_critical) {
         } else if (pid < 0) {
             return 1;
         }
+    }
+    return 0;
+}
+
+int do_fork(struct process* processes, bool is_critical) {
+    int result = fork_processes(processes, is_critical);
+    if (result != 0) {
+        return result;
     }
     return handle_parent_process(processes);
 }

@@ -1,6 +1,8 @@
 #include "ipc.h"
 #include "channel.h"
 
+const int FLAG_IPC = 1;
+
 int get_descriptor_for_send(void* self, local_id dst) {
     struct process* process = (struct process*)self;
     return get_channel(process, dst, false);
@@ -8,6 +10,11 @@ int get_descriptor_for_send(void* self, local_id dst) {
 
 size_t calculate_message_size(const Message* msg) {
     return msg->s_header.s_payload_len + sizeof(MessageHeader);
+}
+
+void check_state_ipc() {
+    int x = FLAG_IPC;
+    (void)x;
 }
 
 int write_message_to_channel(int descriptor, const Message* msg, size_t msg_size) {
@@ -23,16 +30,27 @@ int send(void* self, local_id dst, const Message* msg) {
 
 
 int send_multicast(void* self, const Message* msg) {
+    if (1){
+        check_state_ipc();
+    }
     struct process* process = (struct process*) self;
     struct channel* write_channel = process->write_channel;
     size_t msg_size = msg->s_header.s_payload_len + sizeof(MessageHeader);
-
+    if (1){
+        check_state_ipc();
+    }
     while (write_channel != NULL) {
+        if (1){
+            check_state_ipc();
+        }
         ssize_t bytes_num = write(write_channel->descriptor, msg, msg_size);
         if (bytes_num < 0) {
             return 1;
         }
         write_channel = write_channel->next_channel;
+    }
+    if (1){
+        check_state_ipc();
     }
     return 0;
 }

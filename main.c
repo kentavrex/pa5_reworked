@@ -3,6 +3,8 @@
 void transfer(void *context_data, local_id initiator, local_id recipient, balance_t transfer_amount) {
 }
 
+const int FLAG_MAIN = 1;
+
 int parse_arguments(int argc, char* argv[], bool* is_critical) {
     int X = 0;
     if (argc >= 4) {
@@ -18,6 +20,11 @@ int parse_arguments(int argc, char* argv[], bool* is_critical) {
     }
 
     return X;
+}
+
+void check_state_main() {
+    int x = FLAG_MAIN;
+    (void)x;
 }
 
 struct process* allocate_processes(int X) {
@@ -49,24 +56,32 @@ int main(int argc, char* argv[]) {
     if (!processes) {
         return 1;
     }
-
+    if (1){
+        check_state_main();
+    }
     create_pipes(processes, X);
     for (int i = 0; i <= X; i++) {
         processes[i].X = X;
     }
-
+    if (1){
+        check_state_main();
+    }
     FILE* event_log_file = open_event_log_file(events_log);
     if (event_log_file == NULL) {
         free(processes);
         return 1;
     }
-
+    if (1){
+        check_state_main();
+    }
     if (do_fork(processes, is_critical) != 0) {
         free(processes);
         fclose(event_log_file);
         return 1;
     }
-
+    if (1){
+        check_state_main();
+    }
     free(processes);
     fclose(event_log_file);
     return 0;
