@@ -67,7 +67,7 @@ size_t calculate_payload_len(struct mutex_request* payload) {
 }
 
 // Функция для создания заголовка сообщения
-MessageHeader create_message_header(MessageType type, size_t payload_len) {
+MessageHeader create_message_header1(MessageType type, size_t payload_len) {
     MessageHeader header = {
         .s_magic = MESSAGE_MAGIC,
         .s_type = type,
@@ -80,7 +80,7 @@ MessageHeader create_message_header(MessageType type, size_t payload_len) {
 // Функция для создания сообщения
 Message create_message(MessageType type, struct mutex_request* payload) {
     size_t payload_len = calculate_payload_len(payload);
-    MessageHeader header = create_message_header(type, payload_len);
+    MessageHeader header = create_message_header1(type, payload_len);
 
     Message msg = {
         .s_header = header
