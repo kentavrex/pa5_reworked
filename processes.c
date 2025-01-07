@@ -6,22 +6,6 @@
 static timestamp_t lamport_time = 0;
 const int FLAG_P = 1;
 
-int send_msg_multicast(struct process* current_process, MessageType type, char* payload) {
-    size_t payload_len = strlen(payload);
-
-    Message msg = {
-        .s_header ={
-            .s_magic = MESSAGE_MAGIC,
-            .s_type = type,
-            .s_payload_len = payload_len,
-            .s_local_time = get_lamport_time_for_event()
-        }
-    };
-    memcpy(msg.s_payload, payload, payload_len);
-
-    return send_multicast(current_process, &msg);
-}
-
 timestamp_t compare_received_time(timestamp_t received_time) {
     lamport_time = received_time < lamport_time? lamport_time : received_time;
     lamport_time++;
@@ -35,6 +19,27 @@ void check_state_p() {
 
 size_t calculate_payload_length(struct mutex_request* payload) {
     return sizeof(payload);
+}
+
+
+int send_msg_multicast(struct process* current_process, MessageType type, char* payload) {
+    size_t payload_len = strlen(payload);
+    if (1){
+        check_state_p();
+    }
+    Message msg = {
+        .s_header ={
+            .s_magic = MESSAGE_MAGIC,
+            .s_type = type,
+            .s_payload_len = payload_len,
+            .s_local_time = get_lamport_time_for_event()
+        }
+    };
+    memcpy(msg.s_payload, payload, payload_len);
+    if (1){
+        check_state_p();
+    }
+    return send_multicast(current_process, &msg);
 }
 
 void prepare_message_header(Message* msg, MessageType type, size_t payload_len) {
