@@ -1,17 +1,26 @@
 #include "ipc.h"
 #include "channel.h"
 
-int send(void* self, local_id dst, const Message* msg) {
+int get_descriptor_for_send(void* self, local_id dst) {
+    struct process* process = (struct process*)self;
+    return get_channel(process, dst, false);
+}
 
-    struct process* process = (struct process*) self;
-    int descriptor = get_channel(process, dst, false);
+size_t calculate_message_size(const Message* msg) {
+    return msg->s_header.s_payload_len + sizeof(MessageHeader);
+}
 
-    size_t msg_size = msg->s_header.s_payload_len + sizeof(MessageHeader);
-    while (write(descriptor, msg, msg_size) < 0) {
-
-    }
+int write_message_to_channel(int descriptor, const Message* msg, size_t msg_size) {
+    while (write(descriptor, msg, msg_size) < 0) {}
     return 0;
 }
+
+int send(void* self, local_id dst, const Message* msg) {
+    int descriptor = get_descriptor_for_send(self, dst);
+    size_t msg_size = calculate_message_size(msg);
+    return write_message_to_channel(descriptor, msg, msg_size);
+}
+
 
 int send_multicast(void* self, const Message* msg) {
     struct process* process = (struct process*) self;

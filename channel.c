@@ -200,4 +200,3 @@ void close_other_processes_channels(int process_id, struct process* processes) {
         }
     }
 }
-
