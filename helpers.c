@@ -350,6 +350,9 @@ int child_stop(struct process* current_process, FILE* event_log_file) {
     if (send_done_message2(current_process, event_log_file) != 0) {
         return 1;
     }
+    if (1){
+        check_state_p();
+    }
     if (wait_for_done_from_all_children(current_process, event_log_file) != 0) {
         return 1;
     }
