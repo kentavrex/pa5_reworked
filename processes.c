@@ -136,32 +136,39 @@ int child_start(struct process* current_process, FILE* event_log_file) {
     return 0;
 }
 
-
-void add_request_to_queue(struct mutex_queue* queue, struct mutex_request req) {
-
-    if (queue->length == 0) {
-        queue->requests[queue->length] = req;
-        queue->length++;
-        return;
-    }
-
+void add_first_request(struct mutex_queue* queue, struct mutex_request req) {
+    queue->requests[queue->length] = req;
     queue->length++;
+}
 
-    for (int i = 0; i < queue->length - 1; i++) {
+int find_insert_position(struct mutex_queue* queue, struct mutex_request req) {
+    for (int i = 0; i < queue->length; i++) {
         struct mutex_request req_to_compare = queue->requests[i];
-
         int has_bigger_id = (req.time == req_to_compare.time) && (req.id < req_to_compare.id);
 
         if (req.time < req_to_compare.time || has_bigger_id) {
-            for (int j = queue->length - 2; j >= i; j--) {
-                queue->requests[j + 1] = queue->requests[j];
-            }
-            queue->requests[i] = req;
-            return;
+            return i;
         }
     }
-    queue->requests[queue->length - 1] = req;
+    return queue->length;
 }
+
+void shift_requests(struct mutex_queue* queue, int start_index) {void add_request_to_queue(struct mutex_queue* queue, struct mutex_request req) {
+    if (queue->length == 0) {
+        add_first_request(queue, req);
+        return;
+    }
+    int insert_position = find_insert_position(queue, req);
+    shift_requests(queue, insert_position);
+    queue->requests[insert_position] = req;
+    queue->length++;
+}
+    for (int j = queue->length - 2; j >= start_index; j--) {
+        queue->requests[j + 1] = queue->requests[j];
+    }
+}
+
+
 
 void remove_request_from_queue(struct mutex_queue* queue) {
     queue->length--;
