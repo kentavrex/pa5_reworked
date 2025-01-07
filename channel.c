@@ -23,18 +23,31 @@ void close_channel(struct channel* channel) {
     free(channel);
 }
 
-void add_read_channel(struct process* process, struct channel* read_channel) {
-    if (process->read_channel == NULL) {
-        process->read_channel = read_channel;
+bool is_first_read_channel(struct process* process) {
+    return process->read_channel == NULL;
+}
+
+void set_first_read_channel(struct process* process, struct channel* read_channel) {
+    process->read_channel = read_channel;
+}
+
+struct channel* get_last_read_channel(struct process* process) {
+    struct channel* current_channel = process->read_channel;
+    while (current_channel->next_channel != NULL) {
+        current_channel = current_channel->next_channel;
     }
-    else {
-        struct channel* prev_channel = process->read_channel;
-        while (prev_channel->next_channel != NULL) {
-            prev_channel = prev_channel->next_channel;
-        }
-        prev_channel->next_channel = read_channel;
+    return current_channel;
+}
+
+void add_read_channel(struct process* process, struct channel* read_channel) {
+    if (is_first_read_channel(process)) {
+        set_first_read_channel(process, read_channel);
+    } else {
+        struct channel* last_channel = get_last_read_channel(process);
+        last_channel->next_channel = read_channel;
     }
 }
+
 
 void add_write_channel(struct process* process, struct channel* write_channel) {
     if (process->write_channel == NULL) {
