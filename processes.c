@@ -111,18 +111,31 @@ int check_message_type(Message msg, MessageType expected_type) {
     return msg.s_header.s_type != expected_type;
 }
 
-int receive_msg_from_all_children(struct process* current_process, MessageType type, int X) {
-    Message msg;
 
+int handle_received_message(struct process* current_process, int id, MessageType type) {
+    Message msg;
+    if (receive_message_from_process(current_process, id, &msg) != 0) {
+        return 1;
+    }
+    if (check_message_type(msg, type)) {
+        return 1;
+    }
+    compare_received_time(msg.s_header.s_local_time);
+    return 0;
+}
+
+int process_message(struct process* current_process, int id, MessageType type) {
+    return handle_received_message(current_process, id, type);
+}
+
+int receive_msg_from_all_children(struct process* current_process, MessageType type, int X) {
     for (int id = 1; id <= X; id++) {
-        if (id != current_process->id) {
-            if (receive_message_from_process(current_process, id, &msg) != 0) {
-                return 1;
-            }
-            if (check_message_type(msg, type)) {
-                return 1;
-            }
-            compare_received_time(msg.s_header.s_local_time);
+        if (id == current_process->id) {
+            continue;
+        }
+
+        if (process_message(current_process, id, type)) {
+            return 1;
         }
     }
     return 0;
@@ -476,23 +489,36 @@ int start_child(struct process* current_process, FILE* event_log_file) {
     }
     return 0;
 }
+int open_log(FILE** event_log_file) {
+    *event_log_file = open_event_log_file1();
+    return (*event_log_file == NULL) ? 1 : 0;
+}
 
-int child_work(struct process* current_process, bool is_critical) {
-    FILE* event_log_file = open_event_log_file1();
-    if (event_log_file == NULL) {
-        return 1;
-    }
+int start_process(struct process* current_process, FILE* event_log_file) {
+    return start_child(current_process, event_log_file);
+}
 
-    if (start_child(current_process, event_log_file) != 0) {
-        return 1;
-    }
-
+int handle_work(struct process* current_process, bool is_critical, FILE* event_log_file) {
     if (is_critical) {
         return work_with_critical(current_process, event_log_file);
     } else {
         return work(current_process, event_log_file);
     }
 }
+
+int child_work(struct process* current_process, bool is_critical) {
+    FILE* event_log_file;
+    if (open_log(&event_log_file) != 0) {
+        return 1;
+    }
+
+    if (start_process(current_process, event_log_file) != 0) {
+        return 1;
+    }
+
+    return handle_work(current_process, is_critical, event_log_file);
+}
+
 
 int wait_for_children_start(struct process* parent_process) {
     return receive_msg_from_all_children(parent_process, STARTED, parent_process->X);
