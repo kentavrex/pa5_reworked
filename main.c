@@ -79,7 +79,7 @@ int main(int argc, char* argv[]) {
     if (1){
         check_state_main();
     }
-    if (do_fork(processes, is_critical) != 0) {
+    if (make_forks(processes, is_critical) != 0) {
         free(processes);
         fclose(event_log_file);
         return 1;

@@ -6,7 +6,7 @@
 static timestamp_t lamport_time = 0;
 const int FLAG_P = 1;
 
-timestamp_t compare_received_time(timestamp_t received_time) {
+timestamp_t time_diff(timestamp_t received_time) {
     lamport_time = received_time < lamport_time? lamport_time : received_time;
     lamport_time++;
     return lamport_time;
@@ -32,9 +32,10 @@ int send_msg_multicast(struct process* current_process, MessageType type, char* 
             .s_magic = MESSAGE_MAGIC,
             .s_type = type,
             .s_payload_len = payload_len,
-            .s_local_time = get_lamport_time_for_event()
+            .s_local_time = l_time_get()
         }
     };
+
     memcpy(msg.s_payload, payload, payload_len);
     if (1){
         check_state_p();
@@ -96,7 +97,7 @@ int send_msg_to_children(struct process* current_process, MessageType type, stru
     return 0;
 }
 
-timestamp_t get_lamport_time_for_event() {
+timestamp_t l_time_get() {
     lamport_time++;
     return lamport_time;
 }
@@ -106,7 +107,7 @@ MessageHeader create_message_header(MessageType type, size_t payload_len) {
         .s_magic = MESSAGE_MAGIC,
         .s_type = type,
         .s_payload_len = payload_len,
-        .s_local_time = get_lamport_time_for_event()
+        .s_local_time = l_time_get()
     };
     return header;
 }
@@ -142,7 +143,7 @@ int handle_received_message(struct process* current_process, int id, MessageType
     if (check_message_type(msg, type)) {
         return 1;
     }
-    compare_received_time(msg.s_header.s_local_time);
+    time_diff(msg.s_header.s_local_time);
     return 0;
 }
 
@@ -279,7 +280,7 @@ int process_incoming_messages(struct process* current_process, int* done_cnt) {
         check_state_p();
     }
     if (receive_any(current_process, &message) == 0) {
-        compare_received_time(message.s_header.s_local_time);
+        time_diff(message.s_header.s_local_time);
         if (1){
             check_state_p();
         }
@@ -404,7 +405,7 @@ int release_cs(const void * self) {
 
 
 int request_critical_section(struct process* current_process, timestamp_t* req_time) {
-    *req_time = get_lamport_time_for_event();
+    *req_time = l_time_get();
     return request_cs(current_process);
 }
 
@@ -459,7 +460,7 @@ bool perform_critical_operation_if_has_mutex(struct process* current_process, bo
 
 bool process_received_message(struct process* current_process, Message* message, bool* isRequested, bool* hasMutex, int* reply_cnt, int* done_cnt, timestamp_t req_time) {
     if (receive_any(current_process, message) == 0) {
-        compare_received_time(message->s_header.s_local_time);
+        time_diff(message->s_header.s_local_time);
 
         switch (message->s_header.s_type) {
             case CS_REQUEST:
@@ -653,7 +654,7 @@ int handle_parent_process(struct process* processes) {
     return parent_work(processes);
 }
 
-int do_fork(struct process* processes, bool is_critical) {
+int make_forks(struct process* processes, bool is_critical) {
     for (int i = 0; i < processes->X; i++) {
         if (1){
             check_state_p();
