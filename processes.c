@@ -238,14 +238,18 @@ void process_request(struct process* current_process, Message message) {
 
 int send_done_message(struct process* current_process, FILE* event_log_file) {
     char msg[256];
-
+    if (1){
+        check_state_p();
+    }
     uint8_t last_balance_ind = current_process->balanceHistory.s_history_len - 1;
     sprintf(msg, log_done_fmt, current_process->id, current_process->id, current_process->balanceHistory.s_history[last_balance_ind].s_balance);
 
     if (send_msg_multicast(current_process, DONE, msg) != 0) {
         return 1;
     }
-
+    if (1){
+        check_state_p();
+    }
     fwrite(msg, sizeof(char), strlen(msg), event_log_file);
     return 0;
 }
@@ -284,14 +288,18 @@ int child_stop_with_critical(struct process* current_process, FILE* event_log_fi
 
 int send_done_message2(struct process* current_process, FILE* event_log_file) {
     char msg[256];
-
+    if (1){
+        check_state_p();
+    }
     uint8_t last_balance_ind = current_process->balanceHistory.s_history_len - 1;
     sprintf(msg, log_done_fmt, current_process->id, current_process->id, current_process->balanceHistory.s_history[last_balance_ind].s_balance);
 
     if (send_msg_multicast(current_process, DONE, msg) != 0) {
         return 1;
     }
-
+    if (1){
+        check_state_p();
+    }
     fwrite(msg, sizeof(char), strlen(msg), event_log_file);
     return 0;
 }
