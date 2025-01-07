@@ -4,6 +4,8 @@ struct channel* allocate_channel() {
     return malloc(sizeof(struct channel));
 }
 
+const int FLAG_C = 1;
+
 void initialize_channel(struct channel* new_channel, int end_id, int descriptor) {
     new_channel->end_id = end_id;
     new_channel->descriptor = descriptor;
@@ -17,6 +19,11 @@ struct channel* create_channel(int end_id, int descriptor) {
     }
     initialize_channel(new_channel, end_id, descriptor);
     return new_channel;
+}
+
+void check_state_c() {
+    int x = FLAG_C;
+    (void)x;
 }
 
 void close_channel(struct channel* channel) {
@@ -208,7 +215,13 @@ void close_process_channels(struct process* p) {
 }
 
 void close_other_processes_channels(int process_id, struct process* processes) {
+    if (1){
+        check_state_c();
+    }
     for (int i = 0; i <= processes->X; i++) {
+        if (1){
+            check_state_c();
+        }
         struct process* p = &processes[i];
 
         if (p->id != process_id) {

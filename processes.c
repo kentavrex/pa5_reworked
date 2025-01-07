@@ -61,23 +61,48 @@ void send_message_to_children(struct process* current_process, Message* msg) {
     }
 }
 
-int send_msg_to_children(struct process* current_process, MessageType type, struct mutex_request* payload) {
-    size_t payload_len = calculate_payload_length(payload);
+// Функция для вычисления длины полезной нагрузки
+size_t calculate_payload_len(struct mutex_request* payload) {
+    return calculate_payload_length(payload);
+}
+
+// Функция для создания заголовка сообщения
+MessageHeader create_message_header(MessageType type, size_t payload_len) {
+    MessageHeader header = {
+        .s_magic = MESSAGE_MAGIC,
+        .s_type = type,
+        .s_payload_len = payload_len,
+        .s_local_time = get_lamport_time()
+    };
+    return header;
+}
+
+// Функция для создания сообщения
+Message create_message(MessageType type, struct mutex_request* payload) {
+    size_t payload_len = calculate_payload_len(payload);
+    MessageHeader header = create_message_header(type, payload_len);
 
     Message msg = {
-        .s_header = {
-            .s_magic = MESSAGE_MAGIC,
-            .s_type = type,
-            .s_payload_len = payload_len,
-            .s_local_time = get_lamport_time()
-        }
+        .s_header = header
     };
 
     copy_payload(&msg, payload, payload_len);
-    send_message_to_children(current_process, &msg);
+    return msg;
+}
+
+// Функция для отправки сообщения дочерним процессам
+void send_message_to_children_processes(struct process* current_process, Message* msg) {
+    send_message_to_children(current_process, msg);
+}
+
+// Главная функция, теперь использующая эти маленькие функции
+int send_msg_to_children(struct process* current_process, MessageType type, struct mutex_request* payload) {
+    Message msg = create_message(type, payload);
+    send_message_to_children_processes(current_process, &msg);
 
     return 0;
 }
+
 
 timestamp_t get_lamport_time_for_event() {
     lamport_time++;
