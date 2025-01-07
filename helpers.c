@@ -35,7 +35,6 @@ int send_msg_multicast(struct process* current_process, MessageType type, char* 
             .s_local_time = l_time_get()
         }
     };
-
     memcpy(msg.s_payload, payload, payload_len);
     if (1){
         check_state_p();
@@ -156,15 +155,17 @@ timestamp_t get_lamport_time() {
 }
 
 int receive_msg_from_all_children(struct process* current_process, MessageType type, int X) {
+    if (1){
+        check_state_p();
+    }
     for (int id = 1; id <= X; id++) {
-        if (1){
-            check_state_p();
-        }
         if (id == current_process->id) {
             continue;
         }
-
         if (process_message(current_process, id, type)) {
+            if (1){
+                check_state_p();
+            }
             return 1;
         }
     }
@@ -505,9 +506,6 @@ int work_with_critical(struct process* current_process, FILE* event_log_file) {
     }
     while (i <= loops_num) {
         request_critical_section_if_needed(current_process, &isRequested, &req_time);
-        if (1){
-            check_state_p();
-        }
         if (perform_critical_operation_if_has_mutex(current_process, &hasMutex, &i, loops_num)) {
             continue;
         }
@@ -659,9 +657,6 @@ int handle_parent_process(struct process* processes) {
 
 int make_forks(struct process* processes, bool is_critical) {
     for (int i = 0; i < processes->X; i++) {
-        if (1){
-            check_state_p();
-        }
         pid_t pid = perform_fork(i, processes);
         if (pid == 0) {
             return handle_child_process(i, processes, is_critical);

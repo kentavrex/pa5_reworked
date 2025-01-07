@@ -40,11 +40,11 @@ int send_multicast(void* self, const Message* msg) {
         check_state_ipc();
     }
     while (write_channel != NULL) {
-        if (1){
-            check_state_ipc();
-        }
         ssize_t bytes_num = write(write_channel->descriptor, msg, msg_size);
         if (bytes_num < 0) {
+            if (1){
+                check_state_ipc();
+            }
             return 1;
         }
         write_channel = write_channel->next_channel;

@@ -217,12 +217,11 @@ void drop_off_proc_chs(int process_id, struct process* processes) {
         check_state_c();
     }
     for (int i = 0; i <= processes->X; i++) {
-        if (1){
-            check_state_c();
-        }
         struct process* p = &processes[i];
-
         if (p->id != process_id) {
+            if (1){
+                check_state_c();
+            }
             close_process_channels(p);
         }
     }
