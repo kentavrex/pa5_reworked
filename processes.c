@@ -418,7 +418,7 @@ int work(struct process* current_process, FILE* event_log_file) {
 }
 
 
-FILE* open_event_log_file() {
+FILE* open_event_log_file1() {
     FILE* event_log_file = fopen(events_log, "w");
     if (event_log_file == NULL) {
         perror("Open file error");
@@ -434,7 +434,7 @@ int start_child(struct process* current_process, FILE* event_log_file) {
 }
 
 int child_work(struct process* current_process, bool is_critical) {
-    FILE* event_log_file = open_event_log_file();
+    FILE* event_log_file = open_event_log_file1();
     if (event_log_file == NULL) {
         return 1;
     }
