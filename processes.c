@@ -77,21 +77,27 @@ int send_personally(struct process* current_process, local_id dst, MessageType t
     return send(current_process, dst, &msg);
 }
 
-
 timestamp_t get_lamport_time() {
     return lamport_time;
 }
 
+int receive_message_from_process(struct process* current_process, int process_id, Message* msg) {
+    return receive(current_process, process_id, msg);
+}
+
+int check_message_type(Message msg, MessageType expected_type) {
+    return msg.s_header.s_type != expected_type;
+}
 
 int receive_msg_from_all_children(struct process* current_process, MessageType type, int X) {
     Message msg;
 
     for (int id = 1; id <= X; id++) {
-        if (id != current_process->id) {    
-            if (receive(current_process, id, &msg) != 0) {
+        if (id != current_process->id) {
+            if (receive_message_from_process(current_process, id, &msg) != 0) {
                 return 1;
             }
-            if (msg.s_header.s_type != type) {
+            if (check_message_type(msg, type)) {
                 return 1;
             }
             compare_received_time(msg.s_header.s_local_time);
@@ -99,6 +105,7 @@ int receive_msg_from_all_children(struct process* current_process, MessageType t
     }
     return 0;
 }
+
 
 
 int child_start(struct process* current_process, FILE* event_log_file) {
