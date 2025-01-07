@@ -1,5 +1,8 @@
 #include "processes.h"
 
+void transfer(void *context_data, local_id initiator, local_id recipient, balance_t transfer_amount) {
+}
+
 int main(int argc, char* argv[]) {
 
     int X = 0;
