@@ -32,7 +32,7 @@ int send_msg_to_children(struct process* current_process, MessageType type, stru
     Message msg = {
         .s_header ={
             .s_magic = MESSAGE_MAGIC,
-            .s_type = type, 
+            .s_type = type,
             .s_payload_len = payload_len,
             .s_local_time = get_lamport_time()
         }
@@ -107,23 +107,35 @@ int receive_msg_from_all_children(struct process* current_process, MessageType t
 }
 
 
+int send_start_message(struct process* current_process, char* msg) {
+    sprintf(msg, log_started_fmt, current_process->id, current_process->id, getpid(), getppid(), current_process->balanceHistory.s_history[0].s_balance);
+    return send_msg_multicast(current_process, STARTED, msg);
+}
+
+
+void log_message(FILE* event_log_file, char* msg) {
+    fwrite(msg, sizeof(char), strlen(msg), event_log_file);
+}
+
+int receive_start_messages(struct process* current_process) {
+    return receive_msg_from_all_children(current_process, STARTED, current_process->X);
+}
 
 int child_start(struct process* current_process, FILE* event_log_file) {
     char msg[256];
-
-    sprintf(msg, log_started_fmt, current_process->id, current_process->id, getpid(), getppid(), current_process->balanceHistory.s_history[0].s_balance);
-    if (send_msg_multicast(current_process, STARTED, msg) != 0) {
+    if (send_start_message(current_process, msg) != 0) {
         return 1;
     }
-    fwrite(msg, sizeof(char), strlen(msg), event_log_file);
-    
+    log_message(event_log_file, msg);
+    if (receive_start_messages(current_process) != 0) {
+        return 1;
+    }
     sprintf(msg, log_received_all_started_fmt, current_process->id, current_process->id);
-    if (receive_msg_from_all_children(current_process, STARTED, current_process->X) != 0) {
-        return 1;
-    }
-    fwrite(msg, sizeof(char), strlen(msg), event_log_file);
+    log_message(event_log_file, msg);
+
     return 0;
-} 
+}
+
 
 void add_request_to_queue(struct mutex_queue* queue, struct mutex_request req) {
 
@@ -187,7 +199,7 @@ int child_stop_with_critical(struct process* current_process, FILE* event_log_fi
                 case DONE:
                     done_cnt++;
                     break;
-                
+
             }
         }
     }
@@ -222,7 +234,7 @@ int request_cs(const void * self) {
     struct process* process = (struct process*) self;
 
     struct mutex_request request = {
-        .id = process->id, 
+        .id = process->id,
         .time = get_lamport_time()
     };
 
@@ -245,7 +257,7 @@ int release_cs(const void * self) {
 
 
 int work_with_critical(struct process* current_process,  FILE* event_log_file) {
-    
+
     int i = 1;
     int loops_num = current_process->id * 5;
     bool isRequested = false;
@@ -321,7 +333,7 @@ int work(struct process* current_process, FILE* event_log_file) {
 
 int child_work(struct process* current_process, bool is_critical) {
     FILE* event_log_file = fopen(events_log, "w");
-    
+
     if (event_log_file == NULL) {
         perror("Open file error");
         return 1;
@@ -352,7 +364,7 @@ int parent_work(struct process* parent_process) {
     for (int i = 0; i < parent_process->X; i++) {
         int status;
         pid_t pid = wait(&status);
-        
+
         if (pid > 0) {
             if (WIFEXITED(status)) {
                 printf("Child process %d exited with code: %d\n", pid, WEXITSTATUS(status));
