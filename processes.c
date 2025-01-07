@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #include "processes.h"
 
 
@@ -356,8 +358,52 @@ void handle_done_message(int* done_cnt) {
     (*done_cnt)++;
 }
 
-int work_with_critical(struct process* current_process, FILE* event_log_file) {
+bool request_critical_section_if_needed(struct process* current_process, bool* isRequested, timestamp_t* req_time) {
+    if (!(*isRequested)) {
+        request_critical_section(current_process, req_time);
+        *isRequested = true;
+        return true;
+    }
+    return false;
+}
 
+bool perform_critical_operation_if_has_mutex(struct process* current_process, bool* hasMutex, int* i, int loops_num) {
+    if (*hasMutex) {
+        perform_critical_operation(current_process, *i, loops_num);
+        (*i)++;
+        release_cs(current_process);
+        *hasMutex = false;
+        return true;
+    }
+    return false;
+}
+
+bool process_received_message(struct process* current_process, Message* message, bool* isRequested, bool* hasMutex, int* reply_cnt, int* done_cnt, timestamp_t req_time) {
+    if (receive_any(current_process, message) == 0) {
+        compare_received_time(message->s_header.s_local_time);
+
+        switch (message->s_header.s_type) {
+            case CS_REQUEST:
+                handle_cs_request(current_process, message, isRequested, hasMutex, req_time);
+                break;
+
+            case CS_REPLY:
+                handle_cs_reply(current_process, reply_cnt, hasMutex);
+                break;
+
+            case DONE:
+                handle_done_message(done_cnt);
+                break;
+
+            default:
+                return false;
+        }
+        return true;
+    }
+    return false;
+}
+
+int work_with_critical(struct process* current_process, FILE* event_log_file) {
     int i = 1;
     int loops_num = current_process->id * 5;
     bool isRequested = false;
@@ -367,40 +413,18 @@ int work_with_critical(struct process* current_process, FILE* event_log_file) {
     timestamp_t req_time = 0;
 
     while (i <= loops_num) {
-        if (!isRequested) {
-            request_critical_section(current_process, &req_time);
-            isRequested = true;
-        }
-        if (hasMutex) {
-            perform_critical_operation(current_process, i, loops_num);
-            i++;
-            release_cs(current_process);
-            hasMutex = false;
-            isRequested = false;
+        request_critical_section_if_needed(current_process, &isRequested, &req_time);
+        if (perform_critical_operation_if_has_mutex(current_process, &hasMutex, &i, loops_num)) {
+            continue;
         }
         Message message;
-        if (receive_any(current_process, &message) == 0) {
-            compare_received_time(message.s_header.s_local_time);
-
-            switch (message.s_header.s_type) {
-                case CS_REQUEST:
-                    handle_cs_request(current_process, &message, &isRequested, &hasMutex, req_time);
-                break;
-
-                case CS_REPLY:
-                    handle_cs_reply(current_process, &reply_cnt, &hasMutex);
-                break;
-
-                case DONE:
-                    handle_done_message(&done_cnt);
-                break;
-            }
+        if (process_received_message(current_process, &message, &isRequested, &hasMutex, &reply_cnt, &done_cnt, req_time)) {
+            continue;
         }
     }
 
     return child_stop_with_critical(current_process, event_log_file, done_cnt);
 }
-
 
 
 void log_operation(struct process* current_process, int i, int loops_num) {
