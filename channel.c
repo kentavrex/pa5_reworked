@@ -79,29 +79,30 @@ void add_write_channel(struct process* process, struct channel* write_channel) {
 }
 
 
-int get_channel(struct process* process, int8_t end_id, bool isForRead) {
-    if (isForRead) {
-        struct channel* read_channel = process->read_channel;
+struct channel* find_channel(struct channel* channel_list, int8_t end_id) {
+    struct channel* current_channel = channel_list;
 
-        while (read_channel->end_id != end_id) {
-            read_channel = read_channel->next_channel;
-            if (read_channel == NULL) {
-                return -1;
-            }
+    while (current_channel != NULL) {
+        if (current_channel->end_id == end_id) {
+            return current_channel;
         }
-        return read_channel->descriptor;
-    } else {
-        struct channel* write_channel = process->write_channel;
-
-        while (write_channel->end_id != end_id) {
-            write_channel = write_channel->next_channel;
-            if (write_channel == NULL) {
-                return -1;
-            }
-        }
-        return write_channel->descriptor;
+        current_channel = current_channel->next_channel;
     }
+    return NULL;
 }
+
+int get_channel(struct process* process, int8_t end_id, bool isForRead) {
+    struct channel* target_channel = isForRead
+        ? find_channel(process->read_channel, end_id)
+        : find_channel(process->write_channel, end_id);
+
+    if (target_channel == NULL) {
+        return -1;
+    }
+
+    return target_channel->descriptor;
+}
+
 
 int create_pipes(struct process* processes, int X) {
     FILE* pipes_log_file = fopen(pipes_log, "w");
