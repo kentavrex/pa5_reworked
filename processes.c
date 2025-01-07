@@ -28,24 +28,44 @@ timestamp_t compare_received_time(timestamp_t received_time) {
 }
 
 
+size_t calculate_payload_length(struct mutex_request* payload) {
+    return sizeof(payload);
+}
+
+void prepare_message_header(Message* msg, MessageType type, size_t payload_len) {
+    msg->s_header.s_magic = MESSAGE_MAGIC;
+    msg->s_header.s_type = type;
+    msg->s_header.s_payload_len = payload_len;
+    msg->s_header.s_local_time = get_lamport_time();
+}
+
+void copy_payload(Message* msg, struct mutex_request* payload, size_t payload_len) {
+    memcpy(msg->s_payload, payload, payload_len);
+}
+
+void send_message_to_children(struct process* current_process, Message* msg) {
+    for (int i = 1; i <= current_process->X; i++) {
+        if (i != current_process->id) {
+            send(current_process, i, msg);
+        }
+    }
+}
+
 int send_msg_to_children(struct process* current_process, MessageType type, struct mutex_request* payload) {
-    size_t payload_len = sizeof(payload);
+    size_t payload_len = calculate_payload_length(payload);
 
     Message msg = {
-        .s_header ={
+        .s_header = {
             .s_magic = MESSAGE_MAGIC,
             .s_type = type,
             .s_payload_len = payload_len,
             .s_local_time = get_lamport_time()
         }
     };
-    memcpy(msg.s_payload, payload, payload_len);
 
-    for (int i = 1; i <= current_process->X; i++) {
-        if (i != current_process->id) {
-            send(current_process, i, &msg);
-        }
-    }
+    copy_payload(&msg, payload, payload_len);
+    send_message_to_children(current_process, &msg);
+
     return 0;
 }
 
@@ -491,11 +511,9 @@ void handle_single_child_exit(pid_t pid, int status) {
 pid_t wait_for_child() {
     int status;
     pid_t pid = wait(&status);
-
     if (pid > 0) {
         handle_single_child_exit(pid, status);
     }
-
     return pid;
 }
 
