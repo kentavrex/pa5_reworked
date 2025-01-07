@@ -170,14 +170,21 @@ void add_request_to_queue(struct mutex_queue* queue, struct mutex_request req) {
     queue->length++;
 }
 
-
-
-void remove_request_from_queue(struct mutex_queue* queue) {
+void decrease_queue_length(struct mutex_queue* queue) {
     queue->length--;
+}
+
+void shift_requests_left(struct mutex_queue* queue) {
     for (int i = 0; i < queue->length; i++) {
         queue->requests[i] = queue->requests[i + 1];
     }
 }
+
+void remove_request_from_queue(struct mutex_queue* queue) {
+    decrease_queue_length(queue);
+    shift_requests_left(queue);
+}
+
 
 void process_request(struct process* current_process, Message message) {
     struct mutex_request req;
