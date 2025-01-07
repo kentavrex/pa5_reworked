@@ -153,7 +153,13 @@ int find_insert_position(struct mutex_queue* queue, struct mutex_request req) {
     return queue->length;
 }
 
-void shift_requests(struct mutex_queue* queue, int start_index) {void add_request_to_queue(struct mutex_queue* queue, struct mutex_request req) {
+void shift_requests(struct mutex_queue* queue, int start_index) {
+    for (int j = queue->length - 2; j >= start_index; j--) {
+        queue->requests[j + 1] = queue->requests[j];
+    }
+}
+
+void add_request_to_queue(struct mutex_queue* queue, struct mutex_request req) {
     if (queue->length == 0) {
         add_first_request(queue, req);
         return;
@@ -162,10 +168,6 @@ void shift_requests(struct mutex_queue* queue, int start_index) {void add_reques
     shift_requests(queue, insert_position);
     queue->requests[insert_position] = req;
     queue->length++;
-}
-    for (int j = queue->length - 2; j >= start_index; j--) {
-        queue->requests[j + 1] = queue->requests[j];
-    }
 }
 
 
