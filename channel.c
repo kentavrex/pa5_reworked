@@ -1,12 +1,21 @@
 #include "channel.h"
 
-struct channel* create_channel(int end_id, int descriptor) {
-    struct channel* new_channel = malloc(sizeof(struct channel));
+struct channel* allocate_channel() {
+    return malloc(sizeof(struct channel));
+}
 
+void initialize_channel(struct channel* new_channel, int end_id, int descriptor) {
     new_channel->end_id = end_id;
     new_channel->descriptor = descriptor;
     new_channel->next_channel = NULL;
+}
 
+struct channel* create_channel(int end_id, int descriptor) {
+    struct channel* new_channel = allocate_channel();
+    if (!new_channel) {
+        return NULL;
+    }
+    initialize_channel(new_channel, end_id, descriptor);
     return new_channel;
 }
 
