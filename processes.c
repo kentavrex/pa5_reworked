@@ -237,41 +237,67 @@ int child_stop_with_critical(struct process* current_process, FILE* event_log_fi
     return 0;
 }
 
-
-
-int child_stop(struct process* current_process, FILE* event_log_file) {
+int send_done_message2(struct process* current_process, FILE* event_log_file) {
     char msg[256];
 
     uint8_t last_balance_ind = current_process->balanceHistory.s_history_len - 1;
     sprintf(msg, log_done_fmt, current_process->id, current_process->id, current_process->balanceHistory.s_history[last_balance_ind].s_balance);
+
     if (send_msg_multicast(current_process, DONE, msg) != 0) {
         return 1;
     }
+
     fwrite(msg, sizeof(char), strlen(msg), event_log_file);
+    return 0;
+}
+
+int wait_for_done_from_all_children(struct process* current_process, FILE* event_log_file) {
+    char msg[256];
 
     sprintf(msg, log_received_all_done_fmt, current_process->id, current_process->id);
+
     if (receive_msg_from_all_children(current_process, DONE, current_process->X) != 0) {
         return 1;
     }
-    fwrite(msg, sizeof(char), strlen(msg), event_log_file);
 
+    fwrite(msg, sizeof(char), strlen(msg), event_log_file);
+    return 0;
+}
+
+int child_stop(struct process* current_process, FILE* event_log_file) {
+    if (send_done_message2(current_process, event_log_file) != 0) {
+        return 1;
+    }
+    if (wait_for_done_from_all_children(current_process, event_log_file) != 0) {
+        return 1;
+    }
     fclose(event_log_file);
     return 0;
 }
 
 
-int request_cs(const void * self) {
-    struct process* process = (struct process*) self;
-
+struct mutex_request create_mutex_request(struct process* process) {
     struct mutex_request request = {
         .id = process->id,
         .time = get_lamport_time()
     };
+    return request;
+}
 
-    add_request_to_queue(&process->queue, request);
-    send_msg_to_children(process, CS_REQUEST, &request);
+int add_request_and_send(struct process* process, struct mutex_request* request) {
+    add_request_to_queue(&process->queue, *request);
+    return send_msg_to_children(process, CS_REQUEST, request);
+}
+
+int request_cs(const void * self) {
+    struct process* process = (struct process*) self;
+    struct mutex_request request = create_mutex_request(process);
+    if (add_request_and_send(process, &request) != 0) {
+        return 1;
+    }
     return 0;
 }
+
 
 
 int release_cs(const void * self) {
