@@ -56,7 +56,7 @@ void create_r_ch(struct process* process, struct ch* read_channel) {
 }
 
 
-bool is_first_channel(struct chch* channel_list) {
+bool is_first_channel(struct ch* channel_list) {
     return channel_list == NULL;
 }
 
