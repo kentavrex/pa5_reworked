@@ -78,20 +78,20 @@ int receive(void* self, local_id from, Message* msg) {
 }
 
 
-ssize_t read_header(int descriptor, Message* msg) {
+ssize_t read_header1(int descriptor, Message* msg) {
     size_t header_size = sizeof(msg->s_header);
     return read(descriptor, &msg->s_header, header_size);
 }
 
-ssize_t read_payload(int descriptor, Message* msg, size_t msg_size) {
+ssize_t read_payload1(int descriptor, Message* msg, size_t msg_size) {
     return read(descriptor, &msg->s_payload, msg_size);
 }
 
 int receive_from_channel(struct channel* read_channel, Message* msg) {
-    ssize_t bytes_num = read_header(read_channel->descriptor, msg);
+    ssize_t bytes_num = read_header1(read_channel->descriptor, msg);
     if (bytes_num > 0) {
         size_t msg_size = msg->s_header.s_payload_len;
-        bytes_num = read_payload(read_channel->descriptor, msg, msg_size);
+        bytes_num = read_payload1(read_channel->descriptor, msg, msg_size);
         if (bytes_num >= 0) {
             return 0;
         }
