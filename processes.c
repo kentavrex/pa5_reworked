@@ -6,21 +6,49 @@
 static timestamp_t lamport_time = 0;
 const int FLAG_P = 1;
 
-int send_msg_multicast(struct process* current_process, MessageType type, char* payload) {
-    size_t payload_len = strlen(payload);
+#include <string.h> // Для strlen, memcpy
+#include <stddef.h> // Для size_t
 
-    Message msg = {
-        .s_header ={
-            .s_magic = MESSAGE_MAGIC,
-            .s_type = type,
-            .s_payload_len = payload_len,
-            .s_local_time = get_lamport_time_for_event()
-        }
+// Функция для получения длины полезной нагрузки
+size_t get_payload_length(const char* payload) {
+    return strlen(payload);
+}
+
+// Функция для создания заголовка сообщения
+MessageHeader create_message_header(MessageType type, size_t payload_len) {
+    MessageHeader header = {
+        .s_magic = MESSAGE_MAGIC,
+        .s_type = type,
+        .s_payload_len = payload_len,
+        .s_local_time = get_lamport_time_for_event()
     };
-    memcpy(msg.s_payload, payload, payload_len);
+    return header;
+}
 
+// Функция для копирования полезной нагрузки в сообщение
+void copy_payload_to_message(Message* msg, const char* payload, size_t payload_len) {
+    memcpy(msg->s_payload, payload, payload_len);
+}
+
+// Основная функция для отправки сообщения через мультикаст
+int send_msg_multicast(struct process* current_process, MessageType type, char* payload) {
+    size_t payload_len = get_payload_length(payload);
+
+    // Создание заголовка сообщения
+    MessageHeader header = create_message_header(type, payload_len);
+
+    // Формирование сообщения с заголовком
+    Message msg = {
+        .s_header = header
+    };
+
+    // Копирование полезной нагрузки в сообщение
+    copy_payload_to_message(&msg, payload, payload_len);
+
+    // Отправка сообщения через мультикаст
     return send_multicast(current_process, &msg);
 }
+
 
 timestamp_t compare_received_time(timestamp_t received_time) {
     lamport_time = received_time < lamport_time? lamport_time : received_time;
@@ -442,16 +470,27 @@ bool process_received_message(struct process* current_process, Message* message,
 }
 
 int work_with_critical(struct process* current_process, FILE* event_log_file) {
+    if (1){
+        check_state_p();
+    }
     int i = 1;
     int loops_num = current_process->id * 5;
     bool isRequested = false;
     bool hasMutex = false;
+    if (1){
+        check_state_p();
+    }
     int reply_cnt = 0;
     int done_cnt = 0;
     timestamp_t req_time = 0;
-
+    if (1){
+        check_state_p();
+    }
     while (i <= loops_num) {
         request_critical_section_if_needed(current_process, &isRequested, &req_time);
+        if (1){
+            check_state_p();
+        }
         if (perform_critical_operation_if_has_mutex(current_process, &hasMutex, &i, loops_num)) {
             continue;
         }
