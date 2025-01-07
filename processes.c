@@ -486,46 +486,35 @@ int parent_work(struct process* parent_process) {
 }
 
 
-// Функция для выполнения форка и обработки дочернего процесса
 pid_t perform_fork(int i, struct process* processes) {
     pid_t pid = fork();
     if (pid == 0) {
-        // Дочерний процесс
         close_other_processes_channels(i + 1, processes);
         return pid;
     } else if (pid < 0) {
-        // Ошибка при форке
         perror("Fork fail");
         return -1;
     }
     return pid;
 }
 
-// Функция для выполнения работы дочернего процесса
 int handle_child_process(int i, struct process* processes, bool is_critical) {
     return child_work(&(processes[i + 1]), is_critical);
 }
 
-// Функция для выполнения работы родительского процесса
 int handle_parent_process(struct process* processes) {
     close_other_processes_channels(0, processes);
     return parent_work(processes);
 }
 
-// Основная функция do_fork
 int do_fork(struct process* processes, bool is_critical) {
     for (int i = 0; i < processes->X; i++) {
         pid_t pid = perform_fork(i, processes);
-
         if (pid == 0) {
-            // Дочерний процесс
             return handle_child_process(i, processes, is_critical);
         } else if (pid < 0) {
-            // Ошибка при форке
             return 1;
         }
     }
-
-    // Родительский процесс
     return handle_parent_process(processes);
 }
