@@ -49,18 +49,35 @@ void add_read_channel(struct process* process, struct channel* read_channel) {
 }
 
 
-void add_write_channel(struct process* process, struct channel* write_channel) {
-    if (process->write_channel == NULL) {
-        process->write_channel = write_channel;
+bool is_first_channel(struct channel* channel_list) {
+    return channel_list == NULL;
+}
+
+void set_first_channel(struct channel** channel_list, struct channel* new_channel) {
+    *channel_list = new_channel;
+}
+
+struct channel* get_last_channel(struct channel* channel_list) {
+    struct channel* current_channel = channel_list;
+    while (current_channel->next_channel != NULL) {
+        current_channel = current_channel->next_channel;
     }
-    else {
-        struct channel* prev_channel = process->write_channel;
-        while (prev_channel->next_channel != NULL) {
-            prev_channel = prev_channel->next_channel;
-        }
-        prev_channel->next_channel = write_channel;
+    return current_channel;
+}
+
+void add_channel(struct channel** channel_list, struct channel* new_channel) {
+    if (is_first_channel(*channel_list)) {
+        set_first_channel(channel_list, new_channel);
+    } else {
+        struct channel* last_channel = get_last_channel(*channel_list);
+        last_channel->next_channel = new_channel;
     }
 }
+
+void add_write_channel(struct process* process, struct channel* write_channel) {
+    add_channel(&process->write_channel, write_channel);
+}
+
 
 int get_channel(struct process* process, int8_t end_id, bool isForRead) {
     if (isForRead) {
