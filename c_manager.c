@@ -131,7 +131,7 @@ int configure_pipe(int pipe_fd[2]) {
 }
 
 void log_channel(FILE* log_file, const char* action, int from, int to, int descriptor) {
-    fprintf(log_file, "Process %d %s ch to process %d, descriptor %d\n", from, action, to, descriptor);
+    fprintf(log_file, "The proc %d with %s ch to proc %d. The descriptor id %d\n", from, action, to, descriptor);
 }
 
 int add_channels_between_processes(FILE* log_file, struct process* processes, int i, int j) {

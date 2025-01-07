@@ -25,7 +25,7 @@ int parse_arguments(int argc, char* argv[], bool* is_critical) {
         check_state_main();
     }
     if (X < 1 || X > 9) {
-        perror("Number of processes is out of range [1;9]");
+        perror("Proces range is 1 to 9");
         return -1;
     }
 
@@ -35,7 +35,7 @@ int parse_arguments(int argc, char* argv[], bool* is_critical) {
 struct process* allocate_processes(int X) {
     struct process* processes = calloc(X + 1, sizeof(struct process));
     if (!processes) {
-        perror("Failed to allocate memory for processes structure");
+        perror("Failed allocate memory");
         return NULL;
     }
     return processes;
@@ -44,7 +44,7 @@ struct process* allocate_processes(int X) {
 FILE* open_event_log_file(const char* filename) {
     FILE* event_log_file = fopen(filename, "w");
     if (event_log_file == NULL) {
-        perror("Error opening file");
+        perror("Error of open the file");
     }
     return event_log_file;
 }

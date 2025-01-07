@@ -412,7 +412,6 @@ int request_critical_section(struct process* current_process, timestamp_t* req_t
 void perform_critical_operation(struct process* current_process, int i, int loops_num) {
     char msg[100];
     sprintf(msg, log_loop_operation_fmt, current_process->id, i, loops_num);
-    print(msg);
 }
 
 void handle_cs_request(struct process* current_process, Message* message, bool* isRequested, bool* hasMutex, timestamp_t req_time) {
@@ -521,7 +520,6 @@ int work_with_critical(struct process* current_process, FILE* event_log_file) {
 void log_operation(struct process* current_process, int i, int loops_num) {
     char msg[100];
     sprintf(msg, log_loop_operation_fmt, current_process->id, i, loops_num);
-    print(msg);
 }
 
 int work(struct process* current_process, FILE* event_log_file) {
@@ -599,7 +597,7 @@ int wait_for_children_done(struct process* parent_process) {
 
 void handle_single_child_exit(pid_t pid, int status) {
     if (WIFEXITED(status)) {
-        printf("Child process %d exited with code: %d\n", pid, WEXITSTATUS(status));
+        printf("Process %d (child) exited. The code: %d\n", pid, WEXITSTATUS(status));
     }
 }
 
