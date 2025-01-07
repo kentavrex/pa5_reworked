@@ -418,15 +418,28 @@ int work(struct process* current_process, FILE* event_log_file) {
 }
 
 
-int child_work(struct process* current_process, bool is_critical) {
+FILE* open_event_log_file() {
     FILE* event_log_file = fopen(events_log, "w");
-
     if (event_log_file == NULL) {
         perror("Open file error");
+    }
+    return event_log_file;
+}
+
+int start_child(struct process* current_process, FILE* event_log_file) {
+    if (child_start(current_process, event_log_file) != 0) {
+        return 1;
+    }
+    return 0;
+}
+
+int child_work(struct process* current_process, bool is_critical) {
+    FILE* event_log_file = open_event_log_file();
+    if (event_log_file == NULL) {
         return 1;
     }
 
-    if (child_start(current_process, event_log_file) != 0) {
+    if (start_child(current_process, event_log_file) != 0) {
         return 1;
     }
 
@@ -437,18 +450,16 @@ int child_work(struct process* current_process, bool is_critical) {
     }
 }
 
+int wait_for_children_start(struct process* parent_process) {
+    return receive_msg_from_all_children(parent_process, STARTED, parent_process->X);
+}
 
-int parent_work(struct process* parent_process) {
+int wait_for_children_done(struct process* parent_process) {
+    return receive_msg_from_all_children(parent_process, DONE, parent_process->X);
+}
 
-    if (receive_msg_from_all_children(parent_process, STARTED, parent_process->X) != 0) {
-        return 1;
-    }
-
-    if (receive_msg_from_all_children(parent_process, DONE, parent_process->X) != 0) {
-        return 1;
-    }
-
-    for (int i = 0; i < parent_process->X; i++) {
+int handle_child_exits(int num_children) {
+    for (int i = 0; i < num_children; i++) {
         int status;
         pid_t pid = wait(&status);
 
@@ -458,26 +469,63 @@ int parent_work(struct process* parent_process) {
             }
         }
     }
-
     return 0;
 }
 
+int parent_work(struct process* parent_process) {
 
+    if (wait_for_children_start(parent_process) != 0) {
+        return 1;
+    }
+
+    if (wait_for_children_done(parent_process) != 0) {
+        return 1;
+    }
+
+    return handle_child_exits(parent_process->X);
+}
+
+
+// Функция для выполнения форка и обработки дочернего процесса
+pid_t perform_fork(int i, struct process* processes) {
+    pid_t pid = fork();
+    if (pid == 0) {
+        // Дочерний процесс
+        close_other_processes_channels(i + 1, processes);
+        return pid;
+    } else if (pid < 0) {
+        // Ошибка при форке
+        perror("Fork fail");
+        return -1;
+    }
+    return pid;
+}
+
+// Функция для выполнения работы дочернего процесса
+int handle_child_process(int i, struct process* processes, bool is_critical) {
+    return child_work(&(processes[i + 1]), is_critical);
+}
+
+// Функция для выполнения работы родительского процесса
+int handle_parent_process(struct process* processes) {
+    close_other_processes_channels(0, processes);
+    return parent_work(processes);
+}
+
+// Основная функция do_fork
 int do_fork(struct process* processes, bool is_critical) {
-
     for (int i = 0; i < processes->X; i++) {
-        pid_t pid = fork();
+        pid_t pid = perform_fork(i, processes);
 
         if (pid == 0) {
-            close_other_processes_channels(i + 1, processes);
-            return child_work(&(processes[i + 1]), is_critical);
-        }
-        else if (pid < 0) {
-            perror("Fork fail");
+            // Дочерний процесс
+            return handle_child_process(i, processes, is_critical);
+        } else if (pid < 0) {
+            // Ошибка при форке
             return 1;
         }
     }
 
-    close_other_processes_channels(0, processes);
-    return parent_work(processes);
+    // Родительский процесс
+    return handle_parent_process(processes);
 }
