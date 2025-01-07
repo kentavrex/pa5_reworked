@@ -175,24 +175,29 @@ int create_pipes(struct process* processes, int X) {
 }
 
 
+void close_channels(struct channel* channel) {
+    while (channel != NULL) {
+        close(channel->descriptor);
+        channel = channel->next_channel;
+    }
+}
+
+void close_process_channels(struct process* p) {
+    if (p->read_channel != NULL) {
+        close_channels(p->read_channel);
+    }
+    if (p->write_channel != NULL) {
+        close_channels(p->write_channel);
+    }
+}
+
 void close_other_processes_channels(int process_id, struct process* processes) {
     for (int i = 0; i <= processes->X; i++) {
-        struct process p = processes[i];
+        struct process* p = &processes[i];
 
-        if (p.id != process_id) {
-            struct channel* channel = p.read_channel;
-
-            while (channel != NULL) {
-                close(channel->descriptor);
-                channel = channel->next_channel;
-            }
-
-            channel = p.write_channel;
-
-            while (channel != NULL) {
-                close(channel->descriptor);
-                channel = channel->next_channel;
-            }
+        if (p->id != process_id) {
+            close_process_channels(p);
         }
     }
 }
+
