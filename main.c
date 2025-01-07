@@ -5,26 +5,31 @@ void transfer(void *context_data, local_id initiator, local_id recipient, balanc
 
 const int FLAG_MAIN = 1;
 
+void check_state_main() {
+    int x = FLAG_MAIN;
+    (void)x;
+}
+
 int parse_arguments(int argc, char* argv[], bool* is_critical) {
     int X = 0;
     if (argc >= 4) {
+        if (1){
+            check_state_main();
+        }
         X = atoi(argv[3]);
         *is_critical = strcmp(argv[1], "--mutexl") == 0;
     } else {
         X = atoi(argv[2]);
     }
-
+    if (1){
+        check_state_main();
+    }
     if (X < 1 || X > 9) {
         perror("Number of processes is out of range [1;9]");
         return -1;
     }
 
     return X;
-}
-
-void check_state_main() {
-    int x = FLAG_MAIN;
-    (void)x;
 }
 
 struct process* allocate_processes(int X) {
