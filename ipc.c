@@ -37,23 +37,46 @@ int send_multicast(void* self, const Message* msg) {
     return 0;
 }
 
-int receive(void* self, local_id from, Message* msg) {
+int get_channel_descriptor(struct process* process, local_id from) {
+    return get_channel(process, from, true);
+}
 
-    struct process* process = (struct process*) self;
-    int descriptor = get_channel(process, from, true);
-
+ssize_t read_header(int descriptor, Message* msg) {
     size_t header_size = sizeof(msg->s_header);
     ssize_t bytes_num = read(descriptor, &msg->s_header, header_size);
 
-    while(bytes_num <= 0) {
+    while (bytes_num <= 0) {
         bytes_num = read(descriptor, &msg->s_header, header_size);
     }
-
-    size_t msg_size = msg->s_header.s_payload_len;
-    read(descriptor, &msg->s_payload, msg_size);
-
-    return 0;
+    return bytes_num;
 }
+
+ssize_t read_payload(int descriptor, Message* msg) {
+    size_t msg_size = msg->s_header.s_payload_len;
+    return read(descriptor, &msg->s_payload, msg_size);
+}
+
+int receive(void* self, local_id from, Message* msg) {
+    struct process* process = (struct process*) self;
+
+    int descriptor = get_channel_descriptor(process, from);
+    if (descriptor == -1) {
+        return -1;  // Если канал не найден, сразу возвращаем ошибку.
+    }
+
+    ssize_t header_bytes = read_header(descriptor, msg);
+    if (header_bytes <= 0) {
+        return -1;  // Ошибка при чтении заголовка.
+    }
+
+    ssize_t payload_bytes = read_payload(descriptor, msg);
+    if (payload_bytes <= 0) {
+        return -1;  // Ошибка при чтении полезной нагрузки.
+    }
+
+    return 0;  // Успешное выполнение.
+}
+
 
 int receive_any(void* self, Message* msg) {
     
