@@ -298,21 +298,65 @@ int request_cs(const void * self) {
     return 0;
 }
 
+void remove_request_and_clear(struct process* process) {
+    remove_request_from_queue(&process->queue);
+}
 
+int send_reply_to_all_in_queue(struct process* process) {
+    for (int i = 0; i < process->queue.length; i++) {
+        if (send_personally(process, process->queue.requests[i].id, CS_REPLY, "") != 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
 
 int release_cs(const void * self) {
     struct process* process = (struct process*) self;
-
-    remove_request_from_queue(&process->queue);
-    for (int i = 0; i < process->queue.length; i++) {
-        send_personally(process, process->queue.requests[i].id, CS_REPLY, "");
+    remove_request_and_clear(process);
+    if (send_reply_to_all_in_queue(process) != 0) {
+        return 1;
     }
     process->queue.length = 0;
     return 0;
 }
 
 
-int work_with_critical(struct process* current_process,  FILE* event_log_file) {
+int request_critical_section(struct process* current_process, timestamp_t* req_time) {
+    *req_time = get_lamport_time_for_event();
+    return request_cs(current_process);
+}
+
+void perform_critical_operation(struct process* current_process, int i, int loops_num) {
+    char msg[100];
+    sprintf(msg, log_loop_operation_fmt, current_process->id, i, loops_num);
+    print(msg);
+}
+
+void handle_cs_request(struct process* current_process, Message* message, bool* isRequested, bool* hasMutex, timestamp_t req_time) {
+    struct mutex_request req;
+    memcpy(&req, message->s_payload, message->s_header.s_payload_len);
+
+    if (!*isRequested || req.time < req_time || ((req.time == req_time) && (req.id < current_process->id))) {
+        send_personally(current_process, req.id, CS_REPLY, "");
+    } else {
+        add_request_to_queue(&current_process->queue, req);
+    }
+}
+
+void handle_cs_reply(struct process* current_process, int* reply_cnt, bool* hasMutex) {
+    (*reply_cnt)++;
+    if (*reply_cnt == current_process->X - 1 && current_process->queue.requests[0].id == current_process->id) {
+        *hasMutex = true;
+        *reply_cnt = 0;
+    }
+}
+
+void handle_done_message(int* done_cnt) {
+    (*done_cnt)++;
+}
+
+int work_with_critical(struct process* current_process, FILE* event_log_file) {
 
     int i = 1;
     int loops_num = current_process->id * 5;
@@ -323,65 +367,52 @@ int work_with_critical(struct process* current_process,  FILE* event_log_file) {
     timestamp_t req_time = 0;
 
     while (i <= loops_num) {
-
         if (!isRequested) {
-            req_time = get_lamport_time_for_event();
-            request_cs(current_process);
+            request_critical_section(current_process, &req_time);
             isRequested = true;
         }
-
         if (hasMutex) {
-            char msg[100];
-            sprintf(msg, log_loop_operation_fmt, current_process->id, i, loops_num);
-            print(msg);
+            perform_critical_operation(current_process, i, loops_num);
             i++;
             release_cs(current_process);
             hasMutex = false;
             isRequested = false;
         }
-
         Message message;
-        struct mutex_request req;
-
         if (receive_any(current_process, &message) == 0) {
             compare_received_time(message.s_header.s_local_time);
 
             switch (message.s_header.s_type) {
                 case CS_REQUEST:
-                    memcpy(&req, message.s_payload, message.s_header.s_payload_len);
-
-                    if (!isRequested || req.time < req_time || ((req.time == req_time) && (req.id < current_process->id))) {
-                        send_personally(current_process, req.id, CS_REPLY, "");
-                    } else {
-                        add_request_to_queue(&current_process->queue, req);
-                    }
-                    break;
+                    handle_cs_request(current_process, &message, &isRequested, &hasMutex, req_time);
+                break;
 
                 case CS_REPLY:
-                    reply_cnt++;
-                    if (reply_cnt == current_process->X - 1 && current_process->queue.requests[0].id == current_process->id) {
-                        hasMutex = true;
-                        reply_cnt = 0;
-                    }
-                    break;
+                    handle_cs_reply(current_process, &reply_cnt, &hasMutex);
+                break;
 
                 case DONE:
-                    done_cnt++;
-                    break;
+                    handle_done_message(&done_cnt);
+                break;
             }
         }
     }
+
     return child_stop_with_critical(current_process, event_log_file, done_cnt);
 }
 
 
-int work(struct process* current_process, FILE* event_log_file) {
-    char msg[100];
-    int loops_num = current_process->id * 5;
 
+void log_operation(struct process* current_process, int i, int loops_num) {
+    char msg[100];
+    sprintf(msg, log_loop_operation_fmt, current_process->id, i, loops_num);
+    print(msg);
+}
+
+int work(struct process* current_process, FILE* event_log_file) {
+    int loops_num = current_process->id * 5;
     for (int i = 1; i <= loops_num; i++) {
-        sprintf(msg, log_loop_operation_fmt, current_process->id, i, loops_num);
-        print(msg);
+        log_operation(current_process, i, loops_num);
     }
     return child_stop(current_process, event_log_file);
 }
