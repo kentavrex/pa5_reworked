@@ -172,7 +172,7 @@ int add_pipes_between_processes(FILE* pipes_log_file, struct process* processes,
     return 0;
 }
 
-int create_processes_and_pipes(struct process* processes, int X) {
+int create_pipes(struct process* processes, int X) {
     FILE* pipes_log_file;
     if (open_log_file(&pipes_log_file) == 1) {
         return 1;
