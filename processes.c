@@ -185,44 +185,58 @@ void remove_request_from_queue(struct mutex_queue* queue) {
     shift_requests_left(queue);
 }
 
-
 void process_request(struct process* current_process, Message message) {
     struct mutex_request req;
     memcpy(&req, message.s_payload, message.s_header.s_payload_len);
     send_personally(current_process, req.id, CS_REPLY, "");
 }
 
-int child_stop_with_critical(struct process* current_process, FILE* event_log_file, int done_cnt) {
+int send_done_message(struct process* current_process, FILE* event_log_file) {
     char msg[256];
 
     uint8_t last_balance_ind = current_process->balanceHistory.s_history_len - 1;
     sprintf(msg, log_done_fmt, current_process->id, current_process->id, current_process->balanceHistory.s_history[last_balance_ind].s_balance);
+
     if (send_msg_multicast(current_process, DONE, msg) != 0) {
         return 1;
     }
+
     fwrite(msg, sizeof(char), strlen(msg), event_log_file);
+    return 0;
+}
 
-    while (done_cnt != current_process->X - 1) {
-        Message message;
-        if (receive_any(current_process, &message) == 0) {
-            compare_received_time(message.s_header.s_local_time);
+int process_incoming_messages(struct process* current_process, int* done_cnt) {
+    Message message;
 
-            switch (message.s_header.s_type) {
-                case CS_REQUEST:
-                    process_request(current_process, message);
-                    break;
+    if (receive_any(current_process, &message) == 0) {
+        compare_received_time(message.s_header.s_local_time);
 
-                case DONE:
-                    done_cnt++;
-                    break;
+        switch (message.s_header.s_type) {
+            case CS_REQUEST:
+                process_request(current_process, message);
+            break;
 
-            }
+            case DONE:
+                (*done_cnt)++;
+            break;
         }
     }
+    return 0;
+}
 
+int child_stop_with_critical(struct process* current_process, FILE* event_log_file, int done_cnt) {
+    if (send_done_message(current_process, event_log_file) != 0) {
+        return 1;
+    }
+    while (done_cnt != current_process->X - 1) {
+        if (process_incoming_messages(current_process, &done_cnt) != 0) {
+            return 1;
+        }
+    }
     fclose(event_log_file);
     return 0;
 }
+
 
 
 int child_stop(struct process* current_process, FILE* event_log_file) {
