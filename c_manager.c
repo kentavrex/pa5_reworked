@@ -1,19 +1,19 @@
-#include "channel.h"
+#include "c_manager.h"
 
-struct channel* allocate_channel() {
-    return malloc(sizeof(struct channel));
+struct ch* allocate_channel() {
+    return malloc(sizeof(struct ch));
 }
 
 const int FLAG_C = 1;
 
-void initialize_channel(struct channel* new_channel, int end_id, int descriptor) {
+void initialize_channel(struct ch* new_channel, int end_id, int descriptor) {
     new_channel->end_id = end_id;
     new_channel->descriptor = descriptor;
     new_channel->next_channel = NULL;
 }
 
-struct channel* create_channel(int end_id, int descriptor) {
-    struct channel* new_channel = allocate_channel();
+struct ch* create_channel(int end_id, int descriptor) {
+    struct ch* new_channel = allocate_channel();
     if (!new_channel) {
         return NULL;
     }
@@ -26,68 +26,68 @@ void check_state_c() {
     (void)x;
 }
 
-void close_channel(struct channel* channel) {
-    free(channel);
+void close_channel(struct ch* ch) {
+    free(ch);
 }
 
 bool is_first_read_channel(struct process* process) {
     return process->read_channel == NULL;
 }
 
-void set_first_read_channel(struct process* process, struct channel* read_channel) {
+void set_first_read_channel(struct process* process, struct ch* read_channel) {
     process->read_channel = read_channel;
 }
 
-struct channel* get_last_read_channel(struct process* process) {
-    struct channel* current_channel = process->read_channel;
+struct ch* get_last_read_channel(struct process* process) {
+    struct ch* current_channel = process->read_channel;
     while (current_channel->next_channel != NULL) {
         current_channel = current_channel->next_channel;
     }
     return current_channel;
 }
 
-void add_read_channel(struct process* process, struct channel* read_channel) {
+void create_r_ch(struct process* process, struct ch* read_channel) {
     if (is_first_read_channel(process)) {
         set_first_read_channel(process, read_channel);
     } else {
-        struct channel* last_channel = get_last_read_channel(process);
+        struct ch* last_channel = get_last_read_channel(process);
         last_channel->next_channel = read_channel;
     }
 }
 
 
-bool is_first_channel(struct channel* channel_list) {
+bool is_first_channel(struct chch* channel_list) {
     return channel_list == NULL;
 }
 
-void set_first_channel(struct channel** channel_list, struct channel* new_channel) {
+void set_first_channel(struct ch** channel_list, struct ch* new_channel) {
     *channel_list = new_channel;
 }
 
-struct channel* get_last_channel(struct channel* channel_list) {
-    struct channel* current_channel = channel_list;
+struct ch* get_last_channel(struct ch* channel_list) {
+    struct ch* current_channel = channel_list;
     while (current_channel->next_channel != NULL) {
         current_channel = current_channel->next_channel;
     }
     return current_channel;
 }
 
-void add_channel(struct channel** channel_list, struct channel* new_channel) {
+void add_channel(struct ch** channel_list, struct ch* new_channel) {
     if (is_first_channel(*channel_list)) {
         set_first_channel(channel_list, new_channel);
     } else {
-        struct channel* last_channel = get_last_channel(*channel_list);
+        struct ch* last_channel = get_last_channel(*channel_list);
         last_channel->next_channel = new_channel;
     }
 }
 
-void add_write_channel(struct process* process, struct channel* write_channel) {
+void create_w_ch(struct process* process, struct ch* write_channel) {
     add_channel(&process->write_channel, write_channel);
 }
 
 
-struct channel* find_channel(struct channel* channel_list, int8_t end_id) {
-    struct channel* current_channel = channel_list;
+struct ch* find_channel(struct ch* channel_list, int8_t end_id) {
+    struct ch* current_channel = channel_list;
 
     while (current_channel != NULL) {
         if (current_channel->end_id == end_id) {
@@ -98,8 +98,8 @@ struct channel* find_channel(struct channel* channel_list, int8_t end_id) {
     return NULL;
 }
 
-int get_channel(struct process* process, int8_t end_id, bool isForRead) {
-    struct channel* target_channel = isForRead
+int rec_ch(struct process* process, int8_t end_id, bool isForRead) {
+    struct ch* target_channel = isForRead
         ? find_channel(process->read_channel, end_id)
         : find_channel(process->write_channel, end_id);
 
@@ -131,7 +131,7 @@ int configure_pipe(int pipe_fd[2]) {
 }
 
 void log_channel(FILE* log_file, const char* action, int from, int to, int descriptor) {
-    fprintf(log_file, "Process %d %s channel to process %d, descriptor %d\n", from, action, to, descriptor);
+    fprintf(log_file, "Process %d %s ch to process %d, descriptor %d\n", from, action, to, descriptor);
 }
 
 int add_channels_between_processes(FILE* log_file, struct process* processes, int i, int j) {
@@ -142,16 +142,16 @@ int add_channels_between_processes(FILE* log_file, struct process* processes, in
         return -1;
     }
 
-    add_read_channel(&(processes[i]), create_channel(j, pipe1[0]));
+    create_r_ch(&(processes[i]), create_channel(j, pipe1[0]));
     log_channel(log_file, "READ", i, j, pipe1[0]);
 
-    add_write_channel(&(processes[i]), create_channel(j, pipe2[1]));
+    create_w_ch(&(processes[i]), create_channel(j, pipe2[1]));
     log_channel(log_file, "WRITE", i, j, pipe2[1]);
 
-    add_read_channel(&(processes[j]), create_channel(i, pipe2[0]));
+    create_r_ch(&(processes[j]), create_channel(i, pipe2[0]));
     log_channel(log_file, "READ", j, i, pipe2[0]);
 
-    add_write_channel(&(processes[j]), create_channel(i, pipe1[1]));
+    create_w_ch(&(processes[j]), create_channel(i, pipe1[1]));
     log_channel(log_file, "WRITE", j, i, pipe1[1]);
 
     return 0;
@@ -179,7 +179,7 @@ int add_pipes_between_processes(FILE* pipes_log_file, struct process* processes,
     return 0;
 }
 
-int create_pipes(struct process* processes, int X) {
+int init_pipes(struct process* processes, int X) {
     FILE* pipes_log_file;
     if (open_log_file(&pipes_log_file) == 1) {
         return 1;
@@ -196,12 +196,10 @@ int create_pipes(struct process* processes, int X) {
     return 0;
 }
 
-
-
-void close_channels(struct channel* channel) {
-    while (channel != NULL) {
-        close(channel->descriptor);
-        channel = channel->next_channel;
+void close_channels(struct ch* ch) {
+    while (ch != NULL) {
+        close(ch->descriptor);
+        ch = ch->next_channel;
     }
 }
 
@@ -214,7 +212,7 @@ void close_process_channels(struct process* p) {
     }
 }
 
-void close_other_processes_channels(int process_id, struct process* processes) {
+void drop_off_proc_chs(int process_id, struct process* processes) {
     if (1){
         check_state_c();
     }

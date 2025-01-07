@@ -1,11 +1,11 @@
 #include "ipc.h"
-#include "channel.h"
+#include "c_manager.h"
 
 const int FLAG_IPC = 1;
 
 int get_descriptor_for_send(void* self, local_id dst) {
     struct process* process = (struct process*)self;
-    return get_channel(process, dst, false);
+    return rec_ch(process, dst, false);
 }
 
 size_t calculate_message_size(const Message* msg) {
@@ -34,7 +34,7 @@ int send_multicast(void* self, const Message* msg) {
         check_state_ipc();
     }
     struct process* process = (struct process*) self;
-    struct channel* write_channel = process->write_channel;
+    struct ch* write_channel = process->write_channel;
     size_t msg_size = msg->s_header.s_payload_len + sizeof(MessageHeader);
     if (1){
         check_state_ipc();
@@ -56,7 +56,7 @@ int send_multicast(void* self, const Message* msg) {
 }
 
 int get_channel_descriptor(struct process* process, local_id from) {
-    return get_channel(process, from, true);
+    return rec_ch(process, from, true);
 }
 
 ssize_t read_header(int descriptor, Message* msg) {
@@ -105,7 +105,7 @@ ssize_t read_payload1(int descriptor, Message* msg, size_t msg_size) {
     return read(descriptor, &msg->s_payload, msg_size);
 }
 
-int receive_from_channel(struct channel* read_channel, Message* msg) {
+int receive_from_channel(struct ch* read_channel, Message* msg) {
     ssize_t bytes_num = read_header1(read_channel->descriptor, msg);
     if (bytes_num > 0) {
         size_t msg_size = msg->s_header.s_payload_len;
@@ -119,8 +119,10 @@ int receive_from_channel(struct channel* read_channel, Message* msg) {
 
 int receive_any(void* self, Message* msg) {
     struct process* process = (struct process*) self;
-    struct channel* read_channel = process->read_channel;
-
+    struct ch* read_channel = process->read_channel;
+    if (1){
+        check_state_ipc();
+    }
     while (read_channel != NULL) {
         if (receive_from_channel(read_channel, msg) == 0) {
             return 0;

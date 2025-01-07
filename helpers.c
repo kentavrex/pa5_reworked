@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include "processes.h"
+#include "helpers.h"
 
 
 static timestamp_t lamport_time = 0;
@@ -125,10 +125,6 @@ int send_personally(struct process* current_process, local_id dst, MessageType t
     return send(current_process, dst, &msg);
 }
 
-timestamp_t get_lamport_time() {
-    return lamport_time;
-}
-
 int receive_message_from_process(struct process* current_process, int process_id, Message* msg) {
     return receive(current_process, process_id, msg);
 }
@@ -154,8 +150,15 @@ int process_message(struct process* current_process, int id, MessageType type) {
     return handle_received_message(current_process, id, type);
 }
 
+timestamp_t get_lamport_time() {
+    return lamport_time;
+}
+
 int receive_msg_from_all_children(struct process* current_process, MessageType type, int X) {
     for (int id = 1; id <= X; id++) {
+        if (1){
+            check_state_p();
+        }
         if (id == current_process->id) {
             continue;
         }
@@ -197,12 +200,12 @@ int child_start(struct process* current_process, FILE* event_log_file) {
     return 0;
 }
 
-void add_first_request(struct mutex_queue* queue, struct mutex_request req) {
+void add_first_request(struct m_q* queue, struct mutex_request req) {
     queue->requests[queue->length] = req;
     queue->length++;
 }
 
-int find_insert_position(struct mutex_queue* queue, struct mutex_request req) {
+int find_insert_position(struct m_q* queue, struct mutex_request req) {
     for (int i = 0; i < queue->length; i++) {
         struct mutex_request req_to_compare = queue->requests[i];
         int has_bigger_id = (req.time == req_to_compare.time) && (req.id < req_to_compare.id);
@@ -214,13 +217,13 @@ int find_insert_position(struct mutex_queue* queue, struct mutex_request req) {
     return queue->length;
 }
 
-void shift_requests(struct mutex_queue* queue, int start_index) {
+void shift_requests(struct m_q* queue, int start_index) {
     for (int j = queue->length - 2; j >= start_index; j--) {
         queue->requests[j + 1] = queue->requests[j];
     }
 }
 
-void add_request_to_queue(struct mutex_queue* queue, struct mutex_request req) {
+void add_request_to_queue(struct m_q* queue, struct mutex_request req) {
     if (queue->length == 0) {
         add_first_request(queue, req);
         return;
@@ -231,17 +234,17 @@ void add_request_to_queue(struct mutex_queue* queue, struct mutex_request req) {
     queue->length++;
 }
 
-void decrease_queue_length(struct mutex_queue* queue) {
+void decrease_queue_length(struct m_q* queue) {
     queue->length--;
 }
 
-void shift_requests_left(struct mutex_queue* queue) {
+void shift_requests_left(struct m_q* queue) {
     for (int i = 0; i < queue->length; i++) {
         queue->requests[i] = queue->requests[i + 1];
     }
 }
 
-void remove_request_from_queue(struct mutex_queue* queue) {
+void remove_request_from_queue(struct m_q* queue) {
     decrease_queue_length(queue);
     shift_requests_left(queue);
 }
@@ -272,15 +275,21 @@ int send_done_message(struct process* current_process, FILE* event_log_file) {
 
 int process_incoming_messages(struct process* current_process, int* done_cnt) {
     Message message;
-
+    if (1){
+        check_state_p();
+    }
     if (receive_any(current_process, &message) == 0) {
         compare_received_time(message.s_header.s_local_time);
-
+        if (1){
+            check_state_p();
+        }
         switch (message.s_header.s_type) {
             case CS_REQUEST:
                 process_request(current_process, message);
-            break;
-
+                if (1){
+                    check_state_p();
+                }
+                break;
             case DONE:
                 (*done_cnt)++;
             break;
@@ -322,13 +331,16 @@ int send_done_message2(struct process* current_process, FILE* event_log_file) {
 
 int wait_for_done_from_all_children(struct process* current_process, FILE* event_log_file) {
     char msg[256];
-
+    if (1){
+        check_state_p();
+    }
     sprintf(msg, log_received_all_done_fmt, current_process->id, current_process->id);
-
     if (receive_msg_from_all_children(current_process, DONE, current_process->X) != 0) {
         return 1;
     }
-
+    if (1){
+        check_state_p();
+    }
     fwrite(msg, sizeof(char), strlen(msg), event_log_file);
     return 0;
 }
@@ -544,19 +556,30 @@ int start_process(struct process* current_process, FILE* event_log_file) {
 }
 
 int handle_work(struct process* current_process, bool is_critical, FILE* event_log_file) {
+    if (1){
+        check_state_p();
+    }
     if (is_critical) {
         return work_with_critical(current_process, event_log_file);
     } else {
+        if (1){
+            check_state_p();
+        }
         return work(current_process, event_log_file);
     }
 }
 
 int child_work(struct process* current_process, bool is_critical) {
+    if (1){
+        check_state_p();
+    }
     FILE* event_log_file;
     if (open_log(&event_log_file) != 0) {
+        if (1){
+            check_state_p();
+        }
         return 1;
     }
-
     if (start_process(current_process, event_log_file) != 0) {
         return 1;
     }
@@ -612,7 +635,7 @@ int parent_work(struct process* parent_process) {
 pid_t perform_fork(int i, struct process* processes) {
     pid_t pid = fork();
     if (pid == 0) {
-        close_other_processes_channels(i + 1, processes);
+        drop_off_proc_chs(i + 1, processes);
         return pid;
     } else if (pid < 0) {
         perror("Fork error");
@@ -626,7 +649,7 @@ int handle_child_process(int i, struct process* processes, bool is_critical) {
 }
 
 int handle_parent_process(struct process* processes) {
-    close_other_processes_channels(0, processes);
+    drop_off_proc_chs(0, processes);
     return parent_work(processes);
 }
 

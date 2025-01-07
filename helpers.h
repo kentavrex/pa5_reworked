@@ -4,7 +4,7 @@
 #include <string.h>
 #include <sys/wait.h>
 
-#include "channel.h"
+#include "c_manager.h"
 #include "time.h"
 #include "pa2345.h"
 

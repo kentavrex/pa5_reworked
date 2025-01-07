@@ -1,4 +1,4 @@
-#include "processes.h"
+#include "helpers.h"
 
 void transfer(void *context_data, local_id initiator, local_id recipient, balance_t transfer_amount) {
 }
@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
     if (1){
         check_state_main();
     }
-    create_pipes(processes, X);
+    init_pipes(processes, X);
     for (int i = 0; i <= X; i++) {
         processes[i].X = X;
     }
