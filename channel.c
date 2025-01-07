@@ -104,54 +104,76 @@ int get_channel(struct process* process, int8_t end_id, bool isForRead) {
 }
 
 
+int set_non_blocking(int fd) {
+    if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0) {
+        perror("Failed to set non-blocking mode");
+        return -1;
+    }
+    return 0;
+}
+
+int configure_pipe(int pipe_fd[2]) {
+    if (pipe(pipe_fd) == -1) {
+        perror("Failed to create pipe");
+        return -1;
+    }
+    if (set_non_blocking(pipe_fd[0]) == -1 || set_non_blocking(pipe_fd[1]) == -1) {
+        return -1;
+    }
+    return 0;
+}
+
+void log_channel(FILE* log_file, const char* action, int from, int to, int descriptor) {
+    fprintf(log_file, "Process %d %s channel to process %d, descriptor %d\n", from, action, to, descriptor);
+}
+
+int add_channels_between_processes(FILE* log_file, struct process* processes, int i, int j) {
+    int pipe1[2];
+    int pipe2[2];
+
+    if (configure_pipe(pipe1) == -1 || configure_pipe(pipe2) == -1) {
+        return -1;
+    }
+
+    add_read_channel(&(processes[i]), create_channel(j, pipe1[0]));
+    log_channel(log_file, "READ", i, j, pipe1[0]);
+
+    add_write_channel(&(processes[i]), create_channel(j, pipe2[1]));
+    log_channel(log_file, "WRITE", i, j, pipe2[1]);
+
+    add_read_channel(&(processes[j]), create_channel(i, pipe2[0]));
+    log_channel(log_file, "READ", j, i, pipe2[0]);
+
+    add_write_channel(&(processes[j]), create_channel(i, pipe1[1]));
+    log_channel(log_file, "WRITE", j, i, pipe1[1]);
+
+    return 0;
+}
+
 int create_pipes(struct process* processes, int X) {
     FILE* pipes_log_file = fopen(pipes_log, "w");
 
     if (pipes_log_file == NULL) {
-        perror("Error opening file");
+        perror("Error opening log file");
         return 1;
     }
 
     for (int i = 0; i <= X; i++) {
-
         processes[i].id = i;
 
         for (int j = i + 1; j <= X; j++) {
-
-            int pipe1[2];
-            int pipe2[2];
-
-            if (pipe(pipe1) == -1 || pipe(pipe2) == -1) {
-                perror("Failed to create pipe");
+            if (add_channels_between_processes(pipes_log_file, processes, i, j) == -1) {
+                fclose(pipes_log_file);
                 free(processes);
                 return 1;
             }
-
-            if (fcntl(pipe1[0], F_SETFL, O_NONBLOCK) < 0) 
-                return 1;
-            if (fcntl(pipe1[1], F_SETFL, O_NONBLOCK) < 0) 
-                return 1;
-            if (fcntl(pipe2[0], F_SETFL, O_NONBLOCK) < 0) 
-                return 1;
-            if (fcntl(pipe2[1], F_SETFL, O_NONBLOCK) < 0) 
-                return 1;
-
-            add_read_channel(&(processes[i]), create_channel(j, pipe1[0]));
-            fprintf(pipes_log_file, "Proccess %1d READ channel to process %1d, descriptor = %1d\n", i, j, pipe1[0]);
-
-            add_write_channel(&(processes[i]), create_channel(j, pipe2[1]));
-            fprintf(pipes_log_file, "Proccess %1d WRITE channel to process %1d, descriptor = %1d\n", i, j, pipe2[1]);
-
-            add_read_channel(&(processes[j]), create_channel(i, pipe2[0]));
-            fprintf(pipes_log_file, "Proccess %1d READ channel to process %1d, descriptor = %1d\n", j, i, pipe2[0]);
-
-            add_write_channel(&(processes[j]), create_channel(i, pipe1[1]));
-            fprintf(pipes_log_file, "Proccess %1d WRITE channel to process %1d, descriptor = %1d\n", j, i, pipe1[1]);
         }
     }
+
     fclose(pipes_log_file);
     return 0;
 }
+
 
 void close_other_processes_channels(int process_id, struct process* processes) {
     for (int i = 0; i <= processes->X; i++) {
