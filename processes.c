@@ -458,16 +458,26 @@ int wait_for_children_done(struct process* parent_process) {
     return receive_msg_from_all_children(parent_process, DONE, parent_process->X);
 }
 
+void handle_single_child_exit(pid_t pid, int status) {
+    if (WIFEXITED(status)) {
+        printf("Child process %d exited with code: %d\n", pid, WEXITSTATUS(status));
+    }
+}
+
+pid_t wait_for_child() {
+    int status;
+    pid_t pid = wait(&status);
+
+    if (pid > 0) {
+        handle_single_child_exit(pid, status);
+    }
+
+    return pid;
+}
+
 int handle_child_exits(int num_children) {
     for (int i = 0; i < num_children; i++) {
-        int status;
-        pid_t pid = wait(&status);
-
-        if (pid > 0) {
-            if (WIFEXITED(status)) {
-                printf("Child process %d exited with code: %d\n", pid, WEXITSTATUS(status));
-            }
-        }
+        wait_for_child();
     }
     return 0;
 }
@@ -492,7 +502,7 @@ pid_t perform_fork(int i, struct process* processes) {
         close_other_processes_channels(i + 1, processes);
         return pid;
     } else if (pid < 0) {
-        perror("Fork fail");
+        perror("Fork error");
         return -1;
     }
     return pid;
