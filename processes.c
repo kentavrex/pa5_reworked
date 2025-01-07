@@ -287,7 +287,7 @@ int child_work(struct process* current_process, bool is_critical) {
     FILE* event_log_file = fopen(events_log, "w");
     
     if (event_log_file == NULL) {
-        perror("Error opening file");
+        perror("Open file error");
         return 1;
     }
 
@@ -319,7 +319,7 @@ int parent_work(struct process* parent_process) {
         
         if (pid > 0) {
             if (WIFEXITED(status)) {
-                printf("Дочерний процесс %d завершился с кодом: %d\n", pid, WEXITSTATUS(status));
+                printf("Child process %d exited with code: %d\n", pid, WEXITSTATUS(status));
             }
         }
     }
@@ -338,7 +338,7 @@ int do_fork(struct process* processes, bool is_critical) {
             return child_work(&(processes[i + 1]), is_critical);
         }
         else if (pid < 0) {
-            perror("Failed to fork");
+            perror("Fork fail");
             return 1;
         }
     }
