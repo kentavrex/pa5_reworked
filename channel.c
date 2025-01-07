@@ -150,29 +150,45 @@ int add_channels_between_processes(FILE* log_file, struct process* processes, in
     return 0;
 }
 
-int create_pipes(struct process* processes, int X) {
-    FILE* pipes_log_file = fopen(pipes_log, "w");
-
-    if (pipes_log_file == NULL) {
+int open_log_file(FILE** pipes_log_file) {
+    *pipes_log_file = fopen(pipes_log, "w");
+    if (*pipes_log_file == NULL) {
         perror("Error opening log file");
         return 1;
     }
-
-    for (int i = 0; i <= X; i++) {
-        processes[i].id = i;
-
-        for (int j = i + 1; j <= X; j++) {
-            if (add_channels_between_processes(pipes_log_file, processes, i, j) == -1) {
-                fclose(pipes_log_file);
-                free(processes);
-                return 1;
-            }
-        }
-    }
-
-    fclose(pipes_log_file);
     return 0;
 }
+
+void close_log_file(FILE* pipes_log_file) {
+    fclose(pipes_log_file);
+}
+
+int add_pipes_between_processes(FILE* pipes_log_file, struct process* processes, int i, int X) {
+    for (int j = i + 1; j <= X; j++) {
+        if (add_channels_between_processes(pipes_log_file, processes, i, j) == -1) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int create_processes_and_pipes(struct process* processes, int X) {
+    FILE* pipes_log_file;
+    if (open_log_file(&pipes_log_file) == 1) {
+        return 1;
+    }
+    for (int i = 0; i <= X; i++) {
+        processes[i].id = i;
+        if (add_pipes_between_processes(pipes_log_file, processes, i, X) == 1) {
+            close_log_file(pipes_log_file);
+            free(processes);
+            return 1;
+        }
+    }
+    close_log_file(pipes_log_file);
+    return 0;
+}
+
 
 
 void close_channels(struct channel* channel) {

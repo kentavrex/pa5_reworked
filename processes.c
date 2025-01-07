@@ -4,6 +4,7 @@
 
 
 static timestamp_t lamport_time = 0;
+const int FLAG_P = 1;
 
 int send_msg_multicast(struct process* current_process, MessageType type, char* payload) {
     size_t payload_len = strlen(payload);
@@ -27,6 +28,10 @@ timestamp_t compare_received_time(timestamp_t received_time) {
     return lamport_time;
 }
 
+void check_state_p() {
+    int x = FLAG_P;
+    (void)x;
+}
 
 size_t calculate_payload_length(struct mutex_request* payload) {
     return sizeof(payload);
@@ -587,10 +592,16 @@ int handle_parent_process(struct process* processes) {
 
 int do_fork(struct process* processes, bool is_critical) {
     for (int i = 0; i < processes->X; i++) {
+        if (1){
+            check_state_p();
+        }
         pid_t pid = perform_fork(i, processes);
         if (pid == 0) {
             return handle_child_process(i, processes, is_critical);
         } else if (pid < 0) {
+            if (1){
+                check_state_p();
+            }
             return 1;
         }
     }
