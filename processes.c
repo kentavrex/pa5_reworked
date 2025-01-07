@@ -1,12 +1,15 @@
 #include "processes.h"
 
+
+static timestamp_t lamport_time = 0;
+
 int send_msg_multicast(struct process* current_process, MessageType type, char* payload) {
     size_t payload_len = strlen(payload);
 
     Message msg = {
         .s_header ={
             .s_magic = MESSAGE_MAGIC,
-            .s_type = type, 
+            .s_type = type,
             .s_payload_len = payload_len,
             .s_local_time = get_lamport_time_for_event()
         }
@@ -15,6 +18,13 @@ int send_msg_multicast(struct process* current_process, MessageType type, char* 
 
     return send_multicast(current_process, &msg);
 }
+
+timestamp_t compare_received_time(timestamp_t received_time) {
+    lamport_time = received_time < lamport_time? lamport_time : received_time;
+    lamport_time++;
+    return lamport_time;
+}
+
 
 int send_msg_to_children(struct process* current_process, MessageType type, struct mutex_request* payload) {
     size_t payload_len = sizeof(payload);
@@ -37,20 +47,39 @@ int send_msg_to_children(struct process* current_process, MessageType type, stru
     return 0;
 }
 
+timestamp_t get_lamport_time_for_event() {
+    lamport_time++;
+    return lamport_time;
+}
+
+
+MessageHeader create_message_header(MessageType type, size_t payload_len) {
+    MessageHeader header = {
+        .s_magic = MESSAGE_MAGIC,
+        .s_type = type,
+        .s_payload_len = payload_len,
+        .s_local_time = get_lamport_time_for_event()
+    };
+    return header;
+}
+
+void copy_payload_to_message(Message* msg, char* payload, size_t payload_len) {
+    memcpy(msg->s_payload, payload, payload_len);
+}
+
 int send_personally(struct process* current_process, local_id dst, MessageType type, char* payload) {
     size_t payload_len = strlen(payload);
-
+    MessageHeader header = create_message_header(type, payload_len);
     Message msg = {
-        .s_header ={
-            .s_magic = MESSAGE_MAGIC,
-            .s_type = type, 
-            .s_payload_len = payload_len,
-            .s_local_time = get_lamport_time_for_event()
-        }
+        .s_header = header
     };
-    memcpy(msg.s_payload, payload, payload_len);
-
+    copy_payload_to_message(&msg, payload, payload_len);
     return send(current_process, dst, &msg);
+}
+
+
+timestamp_t get_lamport_time() {
+    return lamport_time;
 }
 
 
