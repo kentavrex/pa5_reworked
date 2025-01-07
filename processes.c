@@ -6,49 +6,21 @@
 static timestamp_t lamport_time = 0;
 const int FLAG_P = 1;
 
-#include <string.h> // Для strlen, memcpy
-#include <stddef.h> // Для size_t
-
-// Функция для получения длины полезной нагрузки
-size_t get_payload_length(const char* payload) {
-    return strlen(payload);
-}
-
-// Функция для создания заголовка сообщения
-MessageHeader create_message_header(MessageType type, size_t payload_len) {
-    MessageHeader header = {
-        .s_magic = MESSAGE_MAGIC,
-        .s_type = type,
-        .s_payload_len = payload_len,
-        .s_local_time = get_lamport_time_for_event()
-    };
-    return header;
-}
-
-// Функция для копирования полезной нагрузки в сообщение
-void copy_payload_to_message(Message* msg, const char* payload, size_t payload_len) {
-    memcpy(msg->s_payload, payload, payload_len);
-}
-
-// Основная функция для отправки сообщения через мультикаст
 int send_msg_multicast(struct process* current_process, MessageType type, char* payload) {
-    size_t payload_len = get_payload_length(payload);
+    size_t payload_len = strlen(payload);
 
-    // Создание заголовка сообщения
-    MessageHeader header = create_message_header(type, payload_len);
-
-    // Формирование сообщения с заголовком
     Message msg = {
-        .s_header = header
+        .s_header ={
+            .s_magic = MESSAGE_MAGIC,
+            .s_type = type,
+            .s_payload_len = payload_len,
+            .s_local_time = get_lamport_time_for_event()
+        }
     };
+    memcpy(msg.s_payload, payload, payload_len);
 
-    // Копирование полезной нагрузки в сообщение
-    copy_payload_to_message(&msg, payload, payload_len);
-
-    // Отправка сообщения через мультикаст
     return send_multicast(current_process, &msg);
 }
-
 
 timestamp_t compare_received_time(timestamp_t received_time) {
     lamport_time = received_time < lamport_time? lamport_time : received_time;
