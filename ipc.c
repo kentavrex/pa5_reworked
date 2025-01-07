@@ -61,20 +61,20 @@ int receive(void* self, local_id from, Message* msg) {
 
     int descriptor = get_channel_descriptor(process, from);
     if (descriptor == -1) {
-        return -1;  // Если канал не найден, сразу возвращаем ошибку.
+        return -1;
     }
 
     ssize_t header_bytes = read_header(descriptor, msg);
     if (header_bytes <= 0) {
-        return -1;  // Ошибка при чтении заголовка.
+        return -1;
     }
 
     ssize_t payload_bytes = read_payload(descriptor, msg);
     if (payload_bytes <= 0) {
-        return -1;  // Ошибка при чтении полезной нагрузки.
+        return -1;
     }
 
-    return 0;  // Успешное выполнение.
+    return 0;
 }
 
 

@@ -3,27 +3,50 @@
 void transfer(void *context_data, local_id initiator, local_id recipient, balance_t transfer_amount) {
 }
 
-int main(int argc, char* argv[]) {
-
+int parse_arguments(int argc, char* argv[], bool* is_critical) {
     int X = 0;
-    bool is_critical = false;
-    
     if (argc >= 4) {
         X = atoi(argv[3]);
-        is_critical = strcmp(argv[1], "--mutexl") == 0;
+        *is_critical = strcmp(argv[1], "--mutexl") == 0;
     } else {
         X = atoi(argv[2]);
     }
 
     if (X < 1 || X > 9) {
         perror("Number of processes is out of range [1;9]");
+        return -1;
+    }
+
+    return X;
+}
+
+struct process* allocate_processes(int X) {
+    struct process* processes = calloc(X + 1, sizeof(struct process));
+    if (!processes) {
+        perror("Failed to allocate memory for processes structure");
+        return NULL;
+    }
+    return processes;
+}
+
+FILE* open_event_log_file(const char* filename) {
+    FILE* event_log_file = fopen(filename, "w");
+    if (event_log_file == NULL) {
+        perror("Error opening file");
+    }
+    return event_log_file;
+}
+
+
+int main(int argc, char* argv[]) {
+    bool is_critical = false;
+    int X = parse_arguments(argc, argv, &is_critical);
+    if (X == -1) {
         return 1;
     }
 
-    struct process* processes = calloc(X + 1, sizeof(struct process));
-
-    if (!processes) {  
-        perror("Failed to allocate memory for processes structure");
+    struct process* processes = allocate_processes(X);
+    if (!processes) {
         return 1;
     }
 
@@ -32,9 +55,9 @@ int main(int argc, char* argv[]) {
         processes[i].X = X;
     }
 
-    FILE* event_log_file = fopen(events_log, "w");
+    FILE* event_log_file = open_event_log_file(events_log);
     if (event_log_file == NULL) {
-        perror("Error opening file");
+        free(processes);
         return 1;
     }
 
