@@ -619,42 +619,28 @@ int handle_parent_process(struct process* processes) {
     return parent_work(processes);
 }
 
-int handle_fork_error() {
-    return 1;
-}
 
-int process_child_logic(int i, struct process* processes, bool is_critical) {
-    return handle_child_process(i, processes, is_critical);
-}
 
-pid_t create_process(int i, struct process* processes) {
-    return perform_fork(i, processes);
-}
+int handle_fork_iteration(int i, struct process* processes, bool is_critical) {
+    pid_t pid = perform_fork(i, processes);
 
-int handle_child_or_error(int i, struct process* processes, bool is_critical, pid_t pid) {
     if (pid == 0) {
-        return process_child_logic(i, processes, is_critical);
+        // Дочерний процесс
+        return handle_child_process(i, processes, is_critical);
     } else if (pid < 0) {
-        return handle_fork_error();
+        // Ошибка в fork
+        return 1;
     }
-    return 0; // No error and not a child process.
-}
 
-int iterate_processes(struct process* processes, bool is_critical) {
-    for (int i = 0; i < processes->X; i++) {
-        pid_t pid = create_process(i, processes);
-        int result = handle_child_or_error(i, processes, is_critical, pid);
-        if (result != 0) {
-            return result;
-        }
-    }
-    return 0; // All iterations succeeded.
+    // Родительский процесс продолжает итерацию
+    return 0;
 }
 
 int make_forks(struct process* processes, bool is_critical) {
-    int result = iterate_processes(processes, is_critical);
-    if (result != 0) {
-        return result;
+    for (int i = 0; i < processes->X; i++) {
+        if (handle_fork_iteration(i, processes, is_critical) != 0) {
+            return 1;
+        }
     }
     return handle_parent_process(processes);
 }
