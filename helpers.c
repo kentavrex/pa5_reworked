@@ -619,38 +619,33 @@ int handle_parent_process(struct process* processes) {
     return parent_work(processes);
 }
 
-int handle_fork_error() {
-    return 1;
+int handle_child(int index, struct process* processes, bool is_critical) {
+    return handle_child_process(index, processes, is_critical);
 }
 
-int handle_single_fork(int i, struct process* processes, bool is_critical) {
-    pid_t pid = perform_fork(i, processes);
+int handle_parent(struct process* processes) {
+    return handle_parent_process(processes);
+}
+
+int create_and_handle_fork(int index, struct process* processes, bool is_critical) {
+    pid_t pid = perform_fork(index, processes);
 
     if (pid == 0) {
-        return handle_child_process(i, processes, is_critical);
+        return handle_child(index, processes, is_critical);
     } else if (pid < 0) {
-        return handle_fork_error();
+        return 1;
     }
 
-    return 0; // Индикатор успешного выполнения
+    return 0; // Успешное выполнение fork
 }
 
-int process_forks(struct process* processes, bool is_critical) {
+int make_forks(struct process* processes, bool is_critical) {
     for (int i = 0; i < processes->X; i++) {
-        int result = handle_single_fork(i, processes, is_critical);
+        int result = create_and_handle_fork(i, processes, is_critical);
         if (result != 0) {
             return result;
         }
     }
-    return 0; // Все форки успешно выполнены
-}
 
-int make_forks(struct process* processes, bool is_critical) {
-    int result = process_forks(processes, is_critical);
-
-    if (result != 0) {
-        return result;
-    }
-
-    return handle_parent_process(processes);
+    return handle_parent(processes);
 }
