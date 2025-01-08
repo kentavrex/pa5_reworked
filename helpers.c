@@ -4,7 +4,7 @@
 
 
 static timestamp_t lamport_time = 0;
-static int FLAG_P = 1;
+const int FLAG_P = 1;
 
 timestamp_t time_diff(timestamp_t received_time) {
     lamport_time = received_time < lamport_time? lamport_time : received_time;
@@ -155,8 +155,6 @@ int receive_msg_from_all_children(struct process* current_process, MessageType t
     for (int id = 1; id <= X; id++) {
         if (id == current_process->id) {
             continue;
-        } else {
-            FLAG_P = 3;
         }
         if (process_message(current_process, id, type)) {
             if (1){
