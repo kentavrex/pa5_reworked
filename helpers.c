@@ -143,18 +143,20 @@ int handle_received_message(struct process* current_process, int id, MessageType
     return 0;
 }
 
-int process_message(struct process* current_process, int id, MessageType type) {
-    return handle_received_message(current_process, id, type);
-}
-
 timestamp_t get_lamport_time() {
     return lamport_time;
+}
+
+int process_message(struct process* current_process, int id, MessageType type) {
+    return handle_received_message(current_process, id, type);
 }
 
 int receive_msg_from_all_children(struct process* current_process, MessageType type, int X) {
     for (int id = 1; id <= X; id++) {
         if (id == current_process->id) {
             continue;
+        } else {
+            print("OK");
         }
         if (process_message(current_process, id, type)) {
             if (1){
