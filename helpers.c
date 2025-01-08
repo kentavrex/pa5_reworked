@@ -533,9 +533,7 @@ int start_process(struct process* current_process, FILE* event_log_file) {
 int handle_work(struct process* current_process, bool is_critical, FILE* event_log_file) {
     if (is_critical) {
         return work_with_critical(current_process, event_log_file);
-    } else {
-        return work(current_process, event_log_file);
-    }
+    return work(current_process, event_log_file);
 }
 
 int child_work(struct process* current_process, bool is_critical) {
@@ -619,33 +617,14 @@ int handle_parent_process(struct process* processes) {
     return parent_work(processes);
 }
 
-int handle_child(int index, struct process* processes, bool is_critical) {
-    return handle_child_process(index, processes, is_critical);
-}
-
-int handle_parent(struct process* processes) {
-    return handle_parent_process(processes);
-}
-
-int create_and_handle_fork(int index, struct process* processes, bool is_critical) {
-    pid_t pid = perform_fork(index, processes);
-
-    if (pid == 0) {
-        return handle_child(index, processes, is_critical);
-    } else if (pid < 0) {
-        return 1;
-    }
-
-    return 0; // Успешное выполнение fork
-}
-
 int make_forks(struct process* processes, bool is_critical) {
     for (int i = 0; i < processes->X; i++) {
-        int result = create_and_handle_fork(i, processes, is_critical);
-        if (result != 0) {
-            return result;
+        pid_t pid = perform_fork(i, processes);
+        if (pid == 0) {
+            return handle_child_process(i, processes, is_critical);
+        } else if (pid < 0) {
+            return 1;
         }
     }
-
-    return handle_parent(processes);
+    return handle_parent_process(processes);
 }
