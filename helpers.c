@@ -533,6 +533,7 @@ int start_process(struct process* current_process, FILE* event_log_file) {
 int handle_work(struct process* current_process, bool is_critical, FILE* event_log_file) {
     if (is_critical) {
         return work_with_critical(current_process, event_log_file);
+    }
     return work(current_process, event_log_file);
 }
 
