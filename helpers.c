@@ -619,26 +619,12 @@ int handle_parent_process(struct process* processes) {
     return parent_work(processes);
 }
 
-
-
-int handle_fork_iteration(int i, struct process* processes, bool is_critical) {
-    pid_t pid = perform_fork(i, processes);
-
-    if (pid == 0) {
-        // Дочерний процесс
-        return handle_child_process(i, processes, is_critical);
-    } else if (pid < 0) {
-        // Ошибка в fork
-        return 1;
-    }
-
-    // Родительский процесс продолжает итерацию
-    return 0;
-}
-
 int make_forks(struct process* processes, bool is_critical) {
     for (int i = 0; i < processes->X; i++) {
-        if (handle_fork_iteration(i, processes, is_critical) != 0) {
+        pid_t pid = perform_fork(i, processes);
+        if (pid == 0) {
+            return handle_child_process(i, processes, is_critical);
+        } else if (pid < 0) {
             return 1;
         }
     }
