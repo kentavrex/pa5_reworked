@@ -30,15 +30,9 @@ int send(void* self, local_id dst, const Message* msg) {
 
 
 int send_multicast(void* self, const Message* msg) {
-    if (1){
-        check_state_ipc();
-    }
     struct process* process = (struct process*) self;
     struct ch* write_channel = process->write_channel;
     size_t msg_size = msg->s_header.s_payload_len + sizeof(MessageHeader);
-    if (1){
-        check_state_ipc();
-    }
     while (write_channel != NULL) {
         ssize_t bytes_num = write(write_channel->descriptor, msg, msg_size);
         if (bytes_num < 0) {
@@ -48,9 +42,6 @@ int send_multicast(void* self, const Message* msg) {
             return 1;
         }
         write_channel = write_channel->next_channel;
-    }
-    if (1){
-        check_state_ipc();
     }
     return 0;
 }
@@ -120,9 +111,6 @@ int receive_from_channel(struct ch* read_channel, Message* msg) {
 int receive_any(void* self, Message* msg) {
     struct process* process = (struct process*) self;
     struct ch* read_channel = process->read_channel;
-    if (1){
-        check_state_ipc();
-    }
     while (read_channel != NULL) {
         if (receive_from_channel(read_channel, msg) == 0) {
             return 0;

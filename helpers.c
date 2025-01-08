@@ -36,9 +36,6 @@ int send_msg_multicast(struct process* current_process, MessageType type, char* 
         }
     };
     memcpy(msg.s_payload, payload, payload_len);
-    if (1){
-        check_state_p();
-    }
     return send_multicast(current_process, &msg);
 }
 
@@ -155,9 +152,6 @@ timestamp_t get_lamport_time() {
 }
 
 int receive_msg_from_all_children(struct process* current_process, MessageType type, int X) {
-    if (1){
-        check_state_p();
-    }
     for (int id = 1; id <= X; id++) {
         if (id == current_process->id) {
             continue;
@@ -268,18 +262,12 @@ int send_done_message(struct process* current_process, FILE* event_log_file) {
     if (send_msg_multicast(current_process, DONE, msg) != 0) {
         return 1;
     }
-    if (1){
-        check_state_p();
-    }
     fwrite(msg, sizeof(char), strlen(msg), event_log_file);
     return 0;
 }
 
 int process_incoming_messages(struct process* current_process, int* done_cnt) {
     Message message;
-    if (1){
-        check_state_p();
-    }
     if (receive_any(current_process, &message) == 0) {
         time_diff(message.s_header.s_local_time);
         if (1){
@@ -288,9 +276,6 @@ int process_incoming_messages(struct process* current_process, int* done_cnt) {
         switch (message.s_header.s_type) {
             case CS_REQUEST:
                 process_request(current_process, message);
-                if (1){
-                    check_state_p();
-                }
                 break;
             case DONE:
                 (*done_cnt)++;
@@ -324,9 +309,6 @@ int send_done_message2(struct process* current_process, FILE* event_log_file) {
     if (send_msg_multicast(current_process, DONE, msg) != 0) {
         return 1;
     }
-    if (1){
-        check_state_p();
-    }
     fwrite(msg, sizeof(char), strlen(msg), event_log_file);
     return 0;
 }
@@ -339,9 +321,6 @@ int wait_for_done_from_all_children(struct process* current_process, FILE* event
     sprintf(msg, log_received_all_done_fmt, current_process->id, current_process->id);
     if (receive_msg_from_all_children(current_process, DONE, current_process->X) != 0) {
         return 1;
-    }
-    if (1){
-        check_state_p();
     }
     fwrite(msg, sizeof(char), strlen(msg), event_log_file);
     return 0;
@@ -488,9 +467,6 @@ bool process_received_message(struct process* current_process, Message* message,
 }
 
 int work_with_critical(struct process* current_process, FILE* event_log_file) {
-    if (1){
-        check_state_p();
-    }
     int i = 1;
     int loops_num = current_process->id * 5;
     bool isRequested = false;
@@ -501,9 +477,6 @@ int work_with_critical(struct process* current_process, FILE* event_log_file) {
     int reply_cnt = 0;
     int done_cnt = 0;
     timestamp_t req_time = 0;
-    if (1){
-        check_state_p();
-    }
     while (i <= loops_num) {
         request_critical_section_if_needed(current_process, &isRequested, &req_time);
         if (perform_critical_operation_if_has_mutex(current_process, &hasMutex, &i, loops_num)) {
@@ -558,23 +531,14 @@ int start_process(struct process* current_process, FILE* event_log_file) {
 }
 
 int handle_work(struct process* current_process, bool is_critical, FILE* event_log_file) {
-    if (1){
-        check_state_p();
-    }
     if (is_critical) {
         return work_with_critical(current_process, event_log_file);
     } else {
-        if (1){
-            check_state_p();
-        }
         return work(current_process, event_log_file);
     }
 }
 
 int child_work(struct process* current_process, bool is_critical) {
-    if (1){
-        check_state_p();
-    }
     FILE* event_log_file;
     if (open_log(&event_log_file) != 0) {
         if (1){
@@ -661,9 +625,6 @@ int make_forks(struct process* processes, bool is_critical) {
         if (pid == 0) {
             return handle_child_process(i, processes, is_critical);
         } else if (pid < 0) {
-            if (1){
-                check_state_p();
-            }
             return 1;
         }
     }
